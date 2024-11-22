@@ -406,20 +406,20 @@ namespace Ryujinx.Graphics.Vulkan
 
             if (dstIsDepthOrStencil)
             {
-                _pipeline.SetProgram(src.Info.Target.IsMultisample ? _programDepthBlitMs : _programDepthBlit);
-                _pipeline.SetDepthTest(new DepthTestDescriptor(true, true, CompareOp.Always));
+                _pipeline.SetProgram(src.Info.Target.IsMultisample ? _programDepthBlitMs : _programDepthBlit, false);
+                _pipeline.SetDepthTest(new DepthTestDescriptor(true, true, CompareOp.Always), false);
             }
             else if (src.Info.Target.IsMultisample)
             {
-                _pipeline.SetProgram(_programColorBlitMs);
+                _pipeline.SetProgram(_programColorBlitMs, false);
             }
             else if (clearAlpha)
             {
-                _pipeline.SetProgram(_programColorBlitClearAlpha);
+                _pipeline.SetProgram(_programColorBlitClearAlpha, false);
             }
             else
             {
-                _pipeline.SetProgram(_programColorBlit);
+                _pipeline.SetProgram(_programColorBlit, false);
             }
 
             int dstWidth = dst.Width;
@@ -434,7 +434,7 @@ namespace Ryujinx.Graphics.Vulkan
                 _pipeline.ClearRenderTargetColor(0, 0, 1, new ColorF(0f, 0f, 0f, 1f));
             }
 
-            _pipeline.SetViewports(viewports);
+            _pipeline.SetViewports(viewports, false);
             _pipeline.SetPrimitiveTopology(PrimitiveTopology.TriangleStrip);
             _pipeline.Draw(4, 1, 0, 0);
 
@@ -566,12 +566,12 @@ namespace Ryujinx.Graphics.Vulkan
 
             if (isDepth)
             {
-                _pipeline.SetProgram(src.Info.Target.IsMultisample ? _programDepthBlitMs : _programDepthBlit);
+                _pipeline.SetProgram(src.Info.Target.IsMultisample ? _programDepthBlitMs : _programDepthBlit, false);
                 _pipeline.SetDepthTest(new DepthTestDescriptor(true, true, CompareOp.Always));
             }
             else
             {
-                _pipeline.SetProgram(src.Info.Target.IsMultisample ? _programStencilBlitMs : _programStencilBlit);
+                _pipeline.SetProgram(src.Info.Target.IsMultisample ? _programStencilBlitMs : _programStencilBlit, false);
                 _pipeline.SetStencilTest(CreateStencilTestDescriptor(true));
             }
 
@@ -771,8 +771,8 @@ namespace Ryujinx.Graphics.Vulkan
                 0f,
                 1f);
 
-            pipeline.SetProgram(_programColorBlit);
-            pipeline.SetViewports(viewports);
+            pipeline.SetProgram(_programColorBlit, false);
+            pipeline.SetViewports(viewports, false);
             pipeline.SetPrimitiveTopology(PrimitiveTopology.TriangleStrip);
             pipeline.Draw(4, 1, 0, 0);
 
@@ -1229,7 +1229,7 @@ namespace Ryujinx.Graphics.Vulkan
                     TextureView srcView = Create2DLayerView(src, srcLayer + z, 0);
                     TextureView dstView = Create2DLayerView(dst, dstLayer + z, 0);
 
-                    _pipeline.SetRenderTarget(dstView, (uint)dst.Width, (uint)dst.Height);
+                    _pipeline.SetRenderTarget(dstView, (uint)dst.Width, (uint)dst.Height, false);
 
                     CopyMSDraw(srcView, aspectFlags, fromMS: false);
 
@@ -1246,7 +1246,7 @@ namespace Ryujinx.Graphics.Vulkan
             }
             else
             {
-                _pipeline.SetProgram(_programColorDrawToMs);
+                _pipeline.SetProgram(_programColorDrawToMs, false);
 
                 Format format = GetFormat(src.Info.BytesPerPixel);
                 VkFormat vkFormat = FormatTable.GetFormat(format);
@@ -1323,12 +1323,12 @@ namespace Ryujinx.Graphics.Vulkan
 
             if (isDepth)
             {
-                _pipeline.SetProgram(fromMS ? _programDepthDrawToNonMs : _programDepthDrawToMs);
+                _pipeline.SetProgram(fromMS ? _programDepthDrawToNonMs : _programDepthDrawToMs, false);
                 _pipeline.SetDepthTest(new DepthTestDescriptor(true, true, CompareOp.Always));
             }
             else
             {
-                _pipeline.SetProgram(fromMS ? _programStencilDrawToNonMs : _programStencilDrawToMs);
+                _pipeline.SetProgram(fromMS ? _programStencilDrawToNonMs : _programStencilDrawToMs, false);
                 _pipeline.SetStencilTest(CreateStencilTestDescriptor(true));
             }
 
