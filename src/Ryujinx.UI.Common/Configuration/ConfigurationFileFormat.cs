@@ -16,7 +16,7 @@ namespace Ryujinx.UI.Common.Configuration
         /// <summary>
         /// The current version of the file format
         /// </summary>
-        public const int CurrentVersion = 61;
+        public const int CurrentVersion = 62;
 
         /// <summary>
         /// Version of the configuration file format
@@ -132,6 +132,11 @@ namespace Ryujinx.UI.Common.Configuration
         /// Enables printing FS access log messages
         /// </summary>
         public bool LoggingEnableFsAccessLog { get; set; }
+        
+        /// <summary>
+        /// Enables log messages from Avalonia
+        /// </summary>
+        public bool LoggingEnableAvalonia { get; set; }
 
         /// <summary>
         /// Controls which log messages are written to the log targets

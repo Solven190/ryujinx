@@ -271,6 +271,11 @@ namespace Ryujinx.UI.Common.Configuration
             public ReactiveObject<bool> EnableFsAccessLog { get; private set; }
 
             /// <summary>
+            /// Enables log messages from Avalonia
+            /// </summary>
+            public ReactiveObject<bool> EnableAvaloniaLog { get; private set; }
+
+            /// <summary>
             /// Controls which log messages are written to the log targets
             /// </summary>
             public ReactiveObject<LogClass[]> FilteredClasses { get; private set; }
@@ -295,6 +300,7 @@ namespace Ryujinx.UI.Common.Configuration
                 EnableTrace = new ReactiveObject<bool>();
                 EnableGuest = new ReactiveObject<bool>();
                 EnableFsAccessLog = new ReactiveObject<bool>();
+                EnableAvaloniaLog = new ReactiveObject<bool>();
                 FilteredClasses = new ReactiveObject<LogClass[]>();
                 EnableFileLog = new ReactiveObject<bool>();
                 EnableFileLog.Event += static (_, e) => LogValueChange(e, nameof(EnableFileLog));
@@ -845,6 +851,7 @@ namespace Ryujinx.UI.Common.Configuration
                 LoggingEnableFsAccessLog = Logger.EnableFsAccessLog,
                 LoggingFilteredClasses = Logger.FilteredClasses,
                 LoggingGraphicsDebugLevel = Logger.GraphicsDebugLevel,
+                LoggingEnableAvalonia = Logger.EnableAvaloniaLog,
                 SystemLanguage = System.Language,
                 SystemRegion = System.Region,
                 SystemTimeZone = System.TimeZone,
@@ -974,6 +981,7 @@ namespace Ryujinx.UI.Common.Configuration
             Logger.EnableFsAccessLog.Value = false;
             Logger.FilteredClasses.Value = [];
             Logger.GraphicsDebugLevel.Value = GraphicsDebugLevel.None;
+            Logger.EnableAvaloniaLog.Value = false;
             System.Language.Value = Language.AmericanEnglish;
             System.Region.Value = Region.USA;
             System.TimeZone.Value = "UTC";
@@ -1806,6 +1814,15 @@ namespace Ryujinx.UI.Common.Configuration
                 configurationFileUpdated = true;
             }
 
+            if (configurationFileFormat.Version < 62)
+            {
+                Ryujinx.Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 62.");
+
+                configurationFileFormat.LoggingEnableAvalonia = false;
+
+                configurationFileUpdated = true;
+            }
+
             Logger.EnableFileLog.Value = configurationFileFormat.EnableFileLog;
             Graphics.ResScale.Value = configurationFileFormat.ResScale;
             Graphics.ResScaleCustom.Value = configurationFileFormat.ResScaleCustom;
@@ -1823,6 +1840,7 @@ namespace Ryujinx.UI.Common.Configuration
             Graphics.ScalingFilter.Value = configurationFileFormat.ScalingFilter;
             Graphics.ScalingFilterLevel.Value = configurationFileFormat.ScalingFilterLevel;
             Logger.EnableDebug.Value = configurationFileFormat.LoggingEnableDebug;
+            Logger.EnableAvaloniaLog.Value = configurationFileFormat.LoggingEnableAvalonia;
             Logger.EnableStub.Value = configurationFileFormat.LoggingEnableStub;
             Logger.EnableInfo.Value = configurationFileFormat.LoggingEnableInfo;
             Logger.EnableWarn.Value = configurationFileFormat.LoggingEnableWarn;
