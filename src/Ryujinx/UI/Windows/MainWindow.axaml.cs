@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -748,6 +749,35 @@ namespace Ryujinx.Ava.UI.Windows
                 await ContentDialogHelper.ShowTextDialog(LocaleManager.Instance[LocaleKeys.DialogConfirmationTitle],
                     msg, "", "", "", LocaleManager.Instance[LocaleKeys.InputDialogOk], (int)FASymbol.Checkmark);
             });
+        }
+        
+        private void AppWindow_OnGotFocus(object sender, FocusChangedEventArgs e)
+        {
+            if (!_didDisableInputUpdates) 
+                return;
+
+            if (!ConfigurationState.Instance.Hid.DisableInputWhenOutOfFocus)
+                return;
+
+            if (ViewModel.AppHost is not { NpadManager.InputUpdatesBlocked: true } appHost)
+                return;
+
+            appHost.NpadManager.UnblockInputUpdates();
+            _didDisableInputUpdates = appHost.NpadManager.InputUpdatesBlocked;
+        }
+
+        private bool _didDisableInputUpdates;
+
+        private void AppWindow_OnLostFocus(object sender, RoutedEventArgs e)
+        {
+            if (!ConfigurationState.Instance.Hid.DisableInputWhenOutOfFocus)
+                return;
+
+            if (ViewModel.AppHost is not { NpadManager.InputUpdatesBlocked: false } appHost)
+                return;
+            
+            appHost.NpadManager.BlockInputUpdates();
+            _didDisableInputUpdates = appHost.NpadManager.InputUpdatesBlocked;
         }
     }
 }

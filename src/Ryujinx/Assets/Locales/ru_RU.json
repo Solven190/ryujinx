@@ -114,6 +114,7 @@
   "SettingsTabGeneralCheckUpdatesOnLaunch": "Проверять наличие обновлений при запуске",
   "SettingsTabGeneralShowConfirmExitDialog": "Подтверждать выход из приложения",
   "SettingsTabGeneralRememberWindowState": "Запомнить размер/положение окна",
+  "SettingsTabGeneralDisableInputWhenOutOfFocus": "Отключить ввод при потере фокуса",
   "SettingsTabGeneralHideCursor": "Скрывать курсор",
   "SettingsTabGeneralHideCursorNever": "Никогда",
   "SettingsTabGeneralHideCursorOnIdle": "В простое",

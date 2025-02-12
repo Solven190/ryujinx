@@ -114,6 +114,7 @@
   "SettingsTabGeneralCheckUpdatesOnLaunch": "Controlla aggiornamenti all'avvio",
   "SettingsTabGeneralShowConfirmExitDialog": "Mostra dialogo \"Conferma Uscita\"",
   "SettingsTabGeneralRememberWindowState": "Ricorda la dimensione e la posizione della finestra",
+  "SettingsTabGeneralDisableInputWhenOutOfFocus": "Disabilità Input quando fuori dal focus",
   "SettingsTabGeneralHideCursor": "Nascondi il cursore:",
   "SettingsTabGeneralHideCursorNever": "Mai",
   "SettingsTabGeneralHideCursorOnIdle": "Quando è inattivo",

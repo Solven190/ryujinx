@@ -478,6 +478,11 @@ namespace Ryujinx.UI.Common.Configuration
             public ReactiveObject<bool> EnableMouse { get; private set; }
 
             /// <summary>
+            /// Enable/disable the ability to control Ryujinx when it's not the currently focused window.
+            /// </summary>
+            public ReactiveObject<bool> DisableInputWhenOutOfFocus { get; private set; }
+
+            /// <summary>
             /// Hotkey Keyboard Bindings
             /// </summary>
             public ReactiveObject<KeyboardHotkeys> Hotkeys { get; private set; }
@@ -493,6 +498,7 @@ namespace Ryujinx.UI.Common.Configuration
             {
                 EnableKeyboard = new ReactiveObject<bool>();
                 EnableMouse = new ReactiveObject<bool>();
+                DisableInputWhenOutOfFocus = new ReactiveObject<bool>();
                 Hotkeys = new ReactiveObject<KeyboardHotkeys>();
                 InputConfig = new ReactiveObject<List<InputConfig>>();
             }
@@ -937,6 +943,7 @@ namespace Ryujinx.UI.Common.Configuration
                 ShowConsole = UI.ShowConsole,
                 EnableKeyboard = Hid.EnableKeyboard,
                 EnableMouse = Hid.EnableMouse,
+                DisableInputWhenOutOfFocus = Hid.DisableInputWhenOutOfFocus,
                 Hotkeys = Hid.Hotkeys,
                 KeyboardConfig = [],
                 ControllerConfig = [],
@@ -1058,6 +1065,8 @@ namespace Ryujinx.UI.Common.Configuration
             UI.WindowStartup.WindowMaximized.Value = false;
             Hid.EnableKeyboard.Value = false;
             Hid.EnableMouse.Value = false;
+            Hid.DisableInputWhenOutOfFocus.Value = false;
+
             Hid.Hotkeys.Value = new KeyboardHotkeys
             {
                 ToggleVSyncMode = Key.F1,
@@ -1823,6 +1832,15 @@ namespace Ryujinx.UI.Common.Configuration
                 configurationFileUpdated = true;
             }
 
+            if (configurationFileFormat.Version < 63)
+            {
+                Ryujinx.Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 63.");
+
+                configurationFileFormat.DisableInputWhenOutOfFocus = false;
+
+                configurationFileUpdated = true;
+            }
+
             Logger.EnableFileLog.Value = configurationFileFormat.EnableFileLog;
             Graphics.ResScale.Value = configurationFileFormat.ResScale;
             Graphics.ResScaleCustom.Value = configurationFileFormat.ResScaleCustom;
@@ -1922,6 +1940,7 @@ namespace Ryujinx.UI.Common.Configuration
             UI.WindowStartup.WindowMaximized.Value = configurationFileFormat.WindowStartup.WindowMaximized;
             Hid.EnableKeyboard.Value = configurationFileFormat.EnableKeyboard;
             Hid.EnableMouse.Value = configurationFileFormat.EnableMouse;
+            Hid.DisableInputWhenOutOfFocus.Value = configurationFileFormat.DisableInputWhenOutOfFocus;
             Hid.Hotkeys.Value = configurationFileFormat.Hotkeys;
             Hid.InputConfig.Value = configurationFileFormat.InputConfig;
 

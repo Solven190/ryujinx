@@ -109,6 +109,7 @@
   "SettingsTabGeneralCheckUpdatesOnLaunch": "Verificar se há atualizações ao iniciar",
   "SettingsTabGeneralShowConfirmExitDialog": "Exibir diálogo de confirmação ao sair",
   "SettingsTabGeneralRememberWindowState": "Lembrar tamanho/posição da Janela",
+  "SettingsTabGeneralDisableInputWhenOutOfFocus": "Desativar Controles Quando Estiver Fora de Foco",
   "SettingsTabGeneralHideCursor": "Esconder o cursor do mouse:",
   "SettingsTabGeneralHideCursorNever": "Nunca",
   "SettingsTabGeneralHideCursorOnIdle": "Esconder o cursor quando ocioso",

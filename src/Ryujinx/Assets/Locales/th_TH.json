@@ -107,6 +107,7 @@
   "SettingsTabGeneralCheckUpdatesOnLaunch": "ตรวจหาการอัปเดตเมื่อเปิดโปรแกรม",
   "SettingsTabGeneralShowConfirmExitDialog": "แสดง \"ยืนยันการออก\" กล่องข้อความโต้ตอบ",
   "SettingsTabGeneralRememberWindowState": "Remember Window Size/Position",
+  "SettingsTabGeneralDisableInputWhenOutOfFocus": "ปิดการพิมพ์เมื่อไม่ได้เลือกช่องอินพุต ไม่ให้กรอกข้อมูลเมื่อช่องอินพุตไม่อยู่ในโฟกัส",
   "SettingsTabGeneralHideCursor": "ซ่อน เคอร์เซอร์:",
   "SettingsTabGeneralHideCursorNever": "ไม่มี",
   "SettingsTabGeneralHideCursorOnIdle": "เมื่อไม่ได้ใช้",

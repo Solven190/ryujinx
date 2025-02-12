@@ -107,6 +107,7 @@
   "SettingsTabGeneralCheckUpdatesOnLaunch": "Vérifier les mises à jour au démarrage",
   "SettingsTabGeneralShowConfirmExitDialog": "Afficher le message de \"Confirmation de sortie\"",
   "SettingsTabGeneralRememberWindowState": "Mémoriser la taille/position de la fenêtre",
+  "SettingsTabGeneralDisableInputWhenOutOfFocus": "Désactiver la Saisie en cas de Perte de Focus",
   "SettingsTabGeneralHideCursor": "Masquer le Curseur :",
   "SettingsTabGeneralHideCursorNever": "Jamais",
   "SettingsTabGeneralHideCursorOnIdle": "Masquer le curseur si inactif",

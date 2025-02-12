@@ -21,7 +21,9 @@
     x:DataType="viewModels:MainWindowViewModel"
     mc:Ignorable="d"
     WindowStartupLocation="Manual"
-    Focusable="True">
+    Focusable="True"
+    GotFocus="AppWindow_OnGotFocus"
+    LostFocus="AppWindow_OnLostFocus">
     <Window.Styles>
         <Style Selector="WindowDrawnDecorations:fullscreen /template/ Border">
             <Setter Property="Background" Value="#000000" />
