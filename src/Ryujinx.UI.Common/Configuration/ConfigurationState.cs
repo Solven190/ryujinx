@@ -1,3 +1,4 @@
+using Ryujinx.Ava.Utilities.Configuration.UI;
 using Ryujinx.Common;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Configuration.Hid;
@@ -792,6 +793,11 @@ namespace Ryujinx.UI.Common.Configuration
         public ReactiveObject<bool> CheckUpdatesOnStart { get; private set; }
 
         /// <summary>
+        /// How the emulator should behave when you click off/on the window.
+        /// </summary>
+        public ReactiveObject<FocusLostType> FocusLostActionType { get; private set; }
+
+        /// <summary>
         /// Show "Confirm Exit" Dialog
         /// </summary>
         public ReactiveObject<bool> ShowConfirmExit { get; private set; }
@@ -822,6 +828,7 @@ namespace Ryujinx.UI.Common.Configuration
             Debug = new DebugSection();
             EnableDiscordIntegration = new ReactiveObject<bool>();
             CheckUpdatesOnStart = new ReactiveObject<bool>();
+            FocusLostActionType = new ReactiveObject<FocusLostType>();
             ShowConfirmExit = new ReactiveObject<bool>();
             RememberWindowState = new ReactiveObject<bool>();
             EnableHardwareAcceleration = new ReactiveObject<bool>();
@@ -866,6 +873,7 @@ namespace Ryujinx.UI.Common.Configuration
                 DockedMode = System.EnableDockedMode,
                 EnableDiscordIntegration = EnableDiscordIntegration,
                 CheckUpdatesOnStart = CheckUpdatesOnStart,
+                FocusLostActionType = FocusLostActionType,
                 ShowConfirmExit = ShowConfirmExit,
                 RememberWindowState = RememberWindowState,
                 EnableHardwareAcceleration = EnableHardwareAcceleration,
@@ -995,6 +1003,7 @@ namespace Ryujinx.UI.Common.Configuration
             System.SystemTimeOffset.Value = 0;
             System.EnableDockedMode.Value = true;
             EnableDiscordIntegration.Value = true;
+            FocusLostActionType.Value = FocusLostType.DoNothing;
             CheckUpdatesOnStart.Value = true;
             ShowConfirmExit.Value = true;
             RememberWindowState.Value = true;
@@ -1841,6 +1850,17 @@ namespace Ryujinx.UI.Common.Configuration
                 configurationFileUpdated = true;
             }
 
+            if (configurationFileFormat.Version < 64)
+            {
+                Ryujinx.Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 64.");
+
+                configurationFileFormat.FocusLostActionType = configurationFileFormat.DisableInputWhenOutOfFocus
+                    ? FocusLostType.BlockInput
+                    : FocusLostType.DoNothing;
+
+                configurationFileUpdated = true;
+            }
+
             Logger.EnableFileLog.Value = configurationFileFormat.EnableFileLog;
             Graphics.ResScale.Value = configurationFileFormat.ResScale;
             Graphics.ResScaleCustom.Value = configurationFileFormat.ResScaleCustom;
@@ -1876,6 +1896,7 @@ namespace Ryujinx.UI.Common.Configuration
             System.EnableDockedMode.Value = configurationFileFormat.DockedMode;
             EnableDiscordIntegration.Value = configurationFileFormat.EnableDiscordIntegration;
             CheckUpdatesOnStart.Value = configurationFileFormat.CheckUpdatesOnStart;
+            FocusLostActionType.Value = configurationFileFormat.FocusLostActionType;
             ShowConfirmExit.Value = configurationFileFormat.ShowConfirmExit;
             RememberWindowState.Value = configurationFileFormat.RememberWindowState;
             EnableHardwareAcceleration.Value = configurationFileFormat.EnableHardwareAcceleration;

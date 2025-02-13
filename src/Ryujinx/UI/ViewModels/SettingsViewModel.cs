@@ -11,6 +11,7 @@ using Ryujinx.Ava.Common.Locale;
 using Ryujinx.Ava.UI.Helpers;
 using Ryujinx.Ava.UI.Models.Input;
 using Ryujinx.Ava.UI.Windows;
+using Ryujinx.Ava.Utilities.Configuration.UI;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Configuration.Multiplayer;
 using Ryujinx.Common.GraphicsDriver;
@@ -153,6 +154,8 @@ namespace Ryujinx.Ava.UI.ViewModels
         public bool EnableKeyboard { get; set; }
         public bool EnableMouse { get; set; }
         public bool DisableInputWhenOutOfFocus { get; set; }
+        
+        public int FocusLostActionType { get; set; }
         
         public VSyncMode VSyncMode
         {
@@ -575,6 +578,7 @@ namespace Ryujinx.Ava.UI.ViewModels
             ShowConfirmExit = config.ShowConfirmExit;
             RememberWindowState = config.RememberWindowState;
             HideCursor = (int)config.HideCursor.Value;
+            FocusLostActionType = (int)config.FocusLostActionType.Value;
 
             GameDirectories.Clear();
             GameDirectories.AddRange(config.UI.GameDirs.Value);
@@ -693,6 +697,7 @@ namespace Ryujinx.Ava.UI.ViewModels
             config.ShowConfirmExit.Value = ShowConfirmExit;
             config.RememberWindowState.Value = RememberWindowState;
             config.HideCursor.Value = (HideCursorMode)HideCursor;
+            config.FocusLostActionType.Value = (FocusLostType)FocusLostActionType;
 
             if (_gameDirectoryChanged)
             {

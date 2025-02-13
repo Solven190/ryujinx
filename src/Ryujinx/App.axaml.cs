@@ -24,6 +24,8 @@ namespace Ryujinx.Ava
 {
     public class App : Application
     {
+        public static event Action ThemeChanged;
+
         public static MainWindow MainWindow => Current!
             .ApplicationLifetime.Cast<IClassicDesktopStyleApplicationLifetime>()
             .MainWindow.Cast<MainWindow>();
@@ -122,7 +124,7 @@ namespace Ryujinx.Ava
 
                 ThemeVariant systemTheme = DetectSystemTheme();
 
-                ThemeManager.OnThemeChanged();
+                ThemeChanged?.Invoke();
 
                 RequestedThemeVariant = baseStyle switch
                 {

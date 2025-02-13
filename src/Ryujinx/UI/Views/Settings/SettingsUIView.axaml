@@ -39,9 +39,30 @@
                     <CheckBox IsChecked="{Binding RememberWindowState}">
                         <TextBlock Text="{locale:Locale SettingsTabGeneralRememberWindowState}" />
                     </CheckBox>
-                    <CheckBox IsChecked="{Binding DisableInputWhenOutOfFocus}">
-                        <TextBlock Text="{locale:Locale SettingsTabGeneralDisableInputWhenOutOfFocus}" />
-                    </CheckBox>
+                    <StackPanel Margin="0, 15, 0, 0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center"
+                                   Text="{locale:Locale SettingsTabGeneralFocusLossType}"
+                                   Width="150" />
+                        <ComboBox SelectedIndex="{Binding FocusLostActionType}"
+                                  HorizontalContentAlignment="Left"
+                                  MinWidth="100">
+                            <ComboBoxItem>
+                                <TextBlock Text="{locale:Locale SettingsTabGeneralFocusLossTypeDoNothing}" />
+                            </ComboBoxItem>
+                            <ComboBoxItem>
+                                <TextBlock Text="{locale:Locale SettingsTabGeneralFocusLossTypeBlockInput}" />
+                            </ComboBoxItem>
+                            <ComboBoxItem>
+                                <TextBlock Text="{locale:Locale SettingsTabGeneralFocusLossTypeMuteAudio}" />
+                            </ComboBoxItem>
+                            <ComboBoxItem>
+                                <TextBlock Text="{locale:Locale SettingsTabGeneralFocusLossTypeBlockInputAndMuteAudio}" />
+                            </ComboBoxItem>
+                            <ComboBoxItem>
+                                <TextBlock Text="{locale:Locale SettingsTabGeneralFocusLossTypePauseEmulation}" />
+                            </ComboBoxItem>
+                        </ComboBox>
+                    </StackPanel>
                     <StackPanel Margin="0, 15, 0, 0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center"
                                    Text="{locale:Locale SettingsTabGeneralHideCursor}"

@@ -1,3 +1,4 @@
+using Ryujinx.Ava.Utilities.Configuration.UI;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Configuration.Hid;
 using Ryujinx.Common.Configuration.Multiplayer;
@@ -16,7 +17,7 @@ namespace Ryujinx.UI.Common.Configuration
         /// <summary>
         /// The current version of the file format
         /// </summary>
-        public const int CurrentVersion = 63;
+        public const int CurrentVersion = 64;
 
         /// <summary>
         /// Version of the configuration file format
@@ -187,6 +188,11 @@ namespace Ryujinx.UI.Common.Configuration
         /// Checks for updates when Ryujinx starts when enabled
         /// </summary>
         public bool CheckUpdatesOnStart { get; set; }
+
+        /// <summary>
+        /// How the emulator should behave when you click off/on the window.
+        /// </summary>
+        public FocusLostType FocusLostActionType { get; set; }
 
         /// <summary>
         /// Show "Confirm Exit" Dialog

@@ -29,10 +29,10 @@ namespace Ryujinx.Ava.UI.ViewModels
             Version = Program.Version;
             UpdateLogoTheme(ConfigurationState.Instance.UI.BaseStyle.Value);
 
-            ThemeManager.ThemeChanged += ThemeManager_ThemeChanged;
+            App.ThemeChanged += Ryujinx_ThemeChanged;
         }
 
-        private void ThemeManager_ThemeChanged(object sender, EventArgs e)
+        private void Ryujinx_ThemeChanged()
         {
             Dispatcher.UIThread.Post(() => UpdateLogoTheme(ConfigurationState.Instance.UI.BaseStyle.Value));
         }
@@ -55,7 +55,7 @@ namespace Ryujinx.Ava.UI.ViewModels
 
         public void Dispose()
         {
-            ThemeManager.ThemeChanged -= ThemeManager_ThemeChanged;
+            App.ThemeChanged -= Ryujinx_ThemeChanged;
             GC.SuppressFinalize(this);
         }
     }
