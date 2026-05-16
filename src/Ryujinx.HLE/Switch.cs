@@ -208,6 +208,7 @@ namespace Ryujinx.HLE
         {
             if (disposing)
             {
+                Processes.ClearAllProcesses();
                 System.Dispose();
                 AudioDeviceDriver.Dispose();
                 FileSystem.Dispose();
