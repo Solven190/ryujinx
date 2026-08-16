@@ -347,7 +347,7 @@ namespace Ryujinx.UI.Common.Configuration
             /// <summary>
             /// Enables or disables profiled translation cache persistency
             /// </summary>
-            public ReactiveObject<bool> EnablePtc { get; private set; }
+            public ReactiveObject<bool> EnablePptc { get; private set; }
 
             /// <summary>
             /// Clock tick scalar, in percent points (100 = 1.0).
@@ -357,7 +357,7 @@ namespace Ryujinx.UI.Common.Configuration
             /// <summary>
             /// Enables or disables low-power profiled translation cache persistency loading
             /// </summary>
-            public ReactiveObject<bool> EnableLowPowerPtc { get; private set; }
+            public ReactiveObject<bool> EnableLowPowerPptc { get; private set; }
 
             /// <summary>
             /// Enables or disables guest Internet access
@@ -408,7 +408,7 @@ namespace Ryujinx.UI.Common.Configuration
             ///  Skip User Profiles Manager
             /// </summary>
             public ReactiveObject<bool> SkipUserProfilesManager { get; private set; }
-
+            
             /// <summary>
             /// Uses Hypervisor over JIT if available
             /// </summary>
@@ -425,10 +425,10 @@ namespace Ryujinx.UI.Common.Configuration
                 MatchSystemTime.Event += static (_, e) => LogValueChange(e, nameof(MatchSystemTime));
                 EnableDockedMode = new ReactiveObject<bool>();
                 EnableDockedMode.Event += static (_, e) => LogValueChange(e, nameof(EnableDockedMode));
-                EnablePtc = new ReactiveObject<bool>();
-                EnablePtc.Event += static (_, e) => LogValueChange(e, nameof(EnablePtc));
-                EnableLowPowerPtc = new ReactiveObject<bool>();
-                EnableLowPowerPtc.Event += static (_, e) => LogValueChange(e, nameof(EnableLowPowerPtc));
+                EnablePptc = new ReactiveObject<bool>();
+                EnablePptc.Event += static (_, e) => LogValueChange(e, nameof(EnablePptc));
+                EnableLowPowerPptc = new ReactiveObject<bool>();
+                EnableLowPowerPptc.Event += static (_, e) => LogValueChange(e, nameof(EnableLowPowerPptc));
                 TickScalar = new ReactiveObject<long>();
                 TickScalar.Event += static (_, e) => LogValueChange(e, nameof(TickScalar));
                 TickScalar.Event += static (_, e) => 
@@ -526,14 +526,9 @@ namespace Ryujinx.UI.Common.Configuration
             public ReactiveObject<AspectRatio> AspectRatio { get; private set; }
 
             /// <summary>
-            /// Resolution Scale. An integer scale applied to applicable render targets. Values 1-4, or -1 to use a custom floating point scale instead.
+            /// Resolution Scale. A float value containing the resolution scale.
             /// </summary>
-            public ReactiveObject<int> ResScale { get; private set; }
-
-            /// <summary>
-            /// Custom Resolution Scale. A custom floating point scale applied to applicable render targets. Only active when Resolution Scale is -1.
-            /// </summary>
-            public ReactiveObject<float> ResScaleCustom { get; private set; }
+            public ReactiveObject<float> ResScale { get; private set; }
 
             /// <summary>
             /// Directory to save the game shaders.
@@ -624,10 +619,8 @@ namespace Ryujinx.UI.Common.Configuration
             {
                 BackendThreading = new ReactiveObject<BackendThreading>();
                 BackendThreading.Event += static (_, e) => LogValueChange(e, nameof(BackendThreading));
-                ResScale = new ReactiveObject<int>();
+                ResScale = new ReactiveObject<float>();
                 ResScale.Event += static (_, e) => LogValueChange(e, nameof(ResScale));
-                ResScaleCustom = new ReactiveObject<float>();
-                ResScaleCustom.Event += static (_, e) => LogValueChange(e, nameof(ResScaleCustom));
                 MaxAnisotropy = new ReactiveObject<float>();
                 MaxAnisotropy.Event += static (_, e) => LogValueChange(e, nameof(MaxAnisotropy));
                 AspectRatio = new ReactiveObject<AspectRatio>();
@@ -843,7 +836,6 @@ namespace Ryujinx.UI.Common.Configuration
                 BackendThreading = Graphics.BackendThreading,
                 EnableFileLog = Logger.EnableFileLog,
                 ResScale = Graphics.ResScale,
-                ResScaleCustom = Graphics.ResScaleCustom,
                 MaxAnisotropy = Graphics.MaxAnisotropy,
                 AspectRatio = Graphics.AspectRatio,
                 AntiAliasing = Graphics.AntiAliasing,
@@ -885,8 +877,8 @@ namespace Ryujinx.UI.Common.Configuration
                 EnableTextureRecompression = Graphics.EnableTextureRecompression,
                 EnableMacroHLE = Graphics.EnableMacroHLE,
                 EnableColorSpacePassthrough = Graphics.EnableColorSpacePassthrough,
-                EnablePtc = System.EnablePtc,
-                EnableLowPowerPtc = System.EnableLowPowerPtc,
+                EnablePtc = System.EnablePptc,
+                EnableLowPowerPtc = System.EnableLowPowerPptc,
                 TickScalar = System.TickScalar,
                 EnableInternetAccess = System.EnableInternetAccess,
                 EnableFsIntegrityChecks = System.EnableFsIntegrityChecks,
@@ -975,8 +967,7 @@ namespace Ryujinx.UI.Common.Configuration
         {
             Logger.EnableFileLog.Value = true;
             Graphics.BackendThreading.Value = BackendThreading.Auto;
-            Graphics.ResScale.Value = 1;
-            Graphics.ResScaleCustom.Value = 1.0f;
+            Graphics.ResScale.Value = 1.0f;
             Graphics.MaxAnisotropy.Value = -1.0f;
             Graphics.AspectRatio.Value = AspectRatio.Fixed16x9;
             Graphics.GraphicsBackend.Value = DefaultGraphicsBackend();
@@ -1019,7 +1010,7 @@ namespace Ryujinx.UI.Common.Configuration
             Graphics.AntiAliasing.Value = AntiAliasing.None;
             Graphics.ScalingFilter.Value = ScalingFilter.Bilinear;
             Graphics.ScalingFilterLevel.Value = 80;
-            System.EnablePtc.Value = true;
+            System.EnablePptc.Value = true;
             System.EnableInternetAccess.Value = false;
             System.EnableFsIntegrityChecks.Value = true;
             System.FsGlobalAccessLogMode.Value = 0;
@@ -1234,8 +1225,7 @@ namespace Ryujinx.UI.Common.Configuration
             {
                 Ryujinx.Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 11.");
 
-                configurationFileFormat.ResScale = 1;
-                configurationFileFormat.ResScaleCustom = 1.0f;
+                configurationFileFormat.ResScale = 1.0f;
 
                 configurationFileUpdated = true;
             }
@@ -1863,7 +1853,6 @@ namespace Ryujinx.UI.Common.Configuration
 
             Logger.EnableFileLog.Value = configurationFileFormat.EnableFileLog;
             Graphics.ResScale.Value = configurationFileFormat.ResScale;
-            Graphics.ResScaleCustom.Value = configurationFileFormat.ResScaleCustom;
             Graphics.MaxAnisotropy.Value = configurationFileFormat.MaxAnisotropy;
             Graphics.AspectRatio.Value = configurationFileFormat.AspectRatio;
             Graphics.ShadersDumpPath.Value = configurationFileFormat.GraphicsShadersDumpPath;
@@ -1908,8 +1897,8 @@ namespace Ryujinx.UI.Common.Configuration
             Graphics.EnableTextureRecompression.Value = configurationFileFormat.EnableTextureRecompression;
             Graphics.EnableMacroHLE.Value = configurationFileFormat.EnableMacroHLE;
             Graphics.EnableColorSpacePassthrough.Value = configurationFileFormat.EnableColorSpacePassthrough;
-            System.EnablePtc.Value = configurationFileFormat.EnablePtc;
-            System.EnableLowPowerPtc.Value = configurationFileFormat.EnableLowPowerPtc;
+            System.EnablePptc.Value = configurationFileFormat.EnablePtc;
+            System.EnableLowPowerPptc.Value = configurationFileFormat.EnableLowPowerPtc;
             System.TickScalar.Value = configurationFileFormat.TickScalar;
             System.EnableInternetAccess.Value = configurationFileFormat.EnableInternetAccess;
             System.EnableFsIntegrityChecks.Value = configurationFileFormat.EnableFsIntegrityChecks;
