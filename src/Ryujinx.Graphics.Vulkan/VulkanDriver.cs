@@ -9,20 +9,27 @@ namespace Ryujinx.Graphics.Vulkan
     {
         private static string GetIcdPath(string fileName)
         {
-            string contentsDir = Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd('/'))!;
+            string baseDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string contentsDir = Path.GetDirectoryName(baseDir)!;
             string[] searchPaths =
             [
+                // .app bundle:
                 Path.Combine(contentsDir, "Resources", "vulkan", "icd.d", fileName),
+
+                // Local build:
                 Path.Combine(contentsDir, fileName)
             ];
 
             foreach (string icdPath in searchPaths)
             {
                 if (File.Exists(icdPath))
+                {
                     return icdPath;
+                }
             }
 
-            throw new FileNotFoundException($"{fileName} not found");
+            throw new FileNotFoundException(
+                $"{fileName} not found. Searched:\n{string.Join(Environment.NewLine, searchPaths)}");
         }
 
         public static void MoltenVK()
