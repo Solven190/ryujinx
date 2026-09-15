@@ -23,7 +23,16 @@ namespace Ryujinx.HLE.Loaders.Processes
 
         private ulong _latestPid;
 
-        public ProcessResult ActiveApplication => _processesByPid[_latestPid];
+        public ProcessResult ActiveApplication
+        {
+            get
+            {
+                if (_latestPid != 0 && _processesByPid.TryGetValue(_latestPid, out ProcessResult process))
+                    return process;
+
+                return null;
+            }
+        }
 
         public ProcessLoader(Switch device)
         {
