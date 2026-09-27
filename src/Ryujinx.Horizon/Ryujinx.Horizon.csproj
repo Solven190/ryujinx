@@ -13,5 +13,6 @@
   <ItemGroup>
     <PackageReference Include="Concentus" />
     <PackageReference Include="Ryujinx.LibHac" />
+    <PackageReference Include="ezhevita.ZstdSharp.Zbic" />
   </ItemGroup>
 </Project>
