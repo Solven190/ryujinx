@@ -78,7 +78,7 @@ namespace Ryujinx.Ava.UI.Views.User
                         ViewModel.BackgroundColor.G,
                         ViewModel.BackgroundColor.B,
                         ViewModel.BackgroundColor.A));
-                    canvas.DrawBitmap(bitmap, 0, 0);
+                    canvas.DrawBitmap(bitmap, 0, 0, new SKSamplingOptions(SKFilterMode.Linear));
                 }
 
                 using (SKImage image = SKImage.FromBitmap(newBitmap))
