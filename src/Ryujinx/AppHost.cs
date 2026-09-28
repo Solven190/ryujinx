@@ -452,7 +452,7 @@ namespace Ryujinx.Ava
                         SKMatrix matrix = SKMatrix.CreateScale(scaleX, scaleY, bitmap.Width / 2f, bitmap.Height / 2f);
 
                         canvas.SetMatrix(matrix);
-                        canvas.DrawBitmap(bitmap, SKPoint.Empty);
+                        canvas.DrawBitmap(bitmap, SKPoint.Empty, new SKSamplingOptions(SKFilterMode.Linear));
 
                         SaveBitmapAsPng(bitmapToSave, path);
 

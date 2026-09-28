@@ -29,7 +29,7 @@
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
     <PackageReference Include="NetCoreServer" />
-    <PackageReference Include="Open.NAT.Core" />
+    <PackageReference Include="Open.Nat.V2" />
   </ItemGroup>
 
   <ItemGroup>

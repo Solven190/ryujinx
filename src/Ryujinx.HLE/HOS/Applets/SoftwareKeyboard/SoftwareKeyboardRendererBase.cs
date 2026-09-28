@@ -202,7 +202,7 @@ namespace Ryujinx.HLE.HOS.Applets.SoftwareKeyboard
 
             canvas.Clear(SKColors.Transparent);
             canvas.DrawRect(_panelRectangle, _panelBrush);
-            canvas.DrawBitmap(_ryujinxLogo, _logoPosition);
+            canvas.DrawBitmap(_ryujinxLogo, _logoPosition, new SKSamplingOptions(SKFilterMode.Linear));
 
             float halfWidth = _panelRectangle.Width / 2;
             float buttonsY = _panelRectangle.Top + 185;
