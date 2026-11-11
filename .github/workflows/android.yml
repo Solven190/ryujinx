@@ -81,12 +81,21 @@ jobs:
           accept-android-sdk-licenses: 'true'
           log-accepted-android-sdk-licenses: 'false'
 
+      - name: Configure APT for stability
+        run: |
+          echo 'Acquire::Retries "5";' | sudo tee -a /etc/apt/apt.conf.d/99ci-retry
+          echo 'Acquire::http::Timeout "15";' | sudo tee -a /etc/apt/apt.conf.d/99ci-retry
+          echo 'Acquire::https::Timeout "15";' | sudo tee -a /etc/apt/apt.conf.d/99ci-retry
+          printf "http://azure.archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n" | sudo tee /etc/apt/apt-mirrors.txt
+          sudo apt-get update
+
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ matrix.name }}
           max-size: ${{ env.CCACHE_MAXSIZE }}
           variant: ccache
+          update-package-index: true
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
