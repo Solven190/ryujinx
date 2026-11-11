@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Build
 import android.provider.DocumentsContract
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,12 +39,12 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.Dashboard
-import androidx.compose.material.icons.outlined.DeveloperBoard
 import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.VideogameAsset
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -170,7 +171,6 @@ class SettingViews {
             val enablePerformanceMode = remember { mutableStateOf(true) }
             val controllerStickSensitivity = remember { mutableFloatStateOf(1.0f) }
 
-            // --- Controller Scale (0.5 .. 1.5), loaded directly from QuickSettings
             val controllerScale = remember {
                 mutableFloatStateOf(QuickSettings(mainViewModel.activity).controllerScale)
             }
@@ -186,16 +186,13 @@ class SettingViews {
             val enableGraphicsLogs = remember { mutableStateOf(true) }
             val isNavigating = remember { mutableStateOf(false) }
 
-            // Load orientation from QuickSettings
             val orientationPref = remember {
                 mutableStateOf(QuickSettings(mainViewModel.activity).orientationPreference)
             }
 
-            // Language & Region States
             val systemLanguage = remember { mutableStateOf(SystemLanguage.AmericanEnglish) }
             val regionCode = remember { mutableStateOf(RegionCode.USA) }
 
-            // Load overlay settings from QuickSettings
             val overlayMenuPosition = remember {
                 mutableStateOf(QuickSettings(mainViewModel.activity).overlayMenuPosition)
             }
@@ -203,7 +200,6 @@ class SettingViews {
                 mutableFloatStateOf(QuickSettings(mainViewModel.activity).overlayMenuOpacity.coerceIn(0f, 1f))
             }
 
-            // --- Disable Threaded Rendering (Load from QuickSettings)
             val disableThreadedRendering = remember {
                 mutableStateOf(QuickSettings(mainViewModel.activity).disableThreadedRendering)
             }
@@ -249,12 +245,65 @@ class SettingViews {
                 loaded.value = true
             }
 
+            val saveSettingsAndNavigateBack = {
+                settingsViewModel.save(
+                    memoryManagerMode,
+                    useNce,
+                    memoryConfiguration,
+                    vSyncMode,
+                    enableDocked,
+                    enablePptc,
+                    enableLowPowerPptc,
+                    enableJitCacheEviction,
+                    enableFsIntegrityChecks,
+                    fsGlobalAccessLogMode,
+                    ignoreMissingServices,
+                    enableShaderCache,
+                    enableTextureRecompression,
+                    enableMacroHLE,
+                    stretchToFullscreen,
+                    resScale,
+                    maxAnisotropy,
+                    useVirtualController,
+                    isGrid,
+                    useSwitchLayout,
+                    enableMotion,
+                    enablePerformanceMode,
+                    controllerStickSensitivity,
+                    enableStubLogs,
+                    enableInfoLogs,
+                    enableWarningLogs,
+                    enableErrorLogs,
+                    enableGuestLogs,
+                    enableFsAccessLogs,
+                    enableTraceLogs,
+                    enableDebugLogs,
+                    enableGraphicsLogs,
+                    systemLanguage,
+                    regionCode
+                )
+
+                if (!isNavigating.value) {
+                    isNavigating.value = true
+                    mainViewModel.navController?.popBackStack()
+
+                    CoroutineScope(Dispatchers.Main).launch {
+                        delay(500)
+                        isNavigating.value = false
+                    }
+                }
+            }
+
+            BackHandler {
+                saveSettingsAndNavigateBack()
+            }
+
             val categories = listOf(
                 Triple("System", Icons.Outlined.Settings, 0),
-                Triple("Graphics", Icons.Outlined.Palette, 1),
-                Triple("CPU", Icons.Outlined.DeveloperBoard, 2),
+                Triple("Graphics", Icons.Outlined.ColorLens, 1),
+                Triple("CPU", Icons.Outlined.Speed, 2),
                 Triple("Input", Icons.Outlined.VideogameAsset, 3),
-                Triple("User Interface", Icons.Outlined.Dashboard, 4),
+                Triple("Interface", Icons.Outlined.Dashboard, 4),
                 Triple("System Files", Icons.Outlined.Folder, 5),
                 Triple("Logging", Icons.Outlined.FileOpen, 6)
             )
@@ -289,56 +338,7 @@ class SettingViews {
                             Text(text = "Settings")
                         },
                             navigationIcon = {
-                                IconButton(onClick = {
-                                    settingsViewModel.save(
-                                        memoryManagerMode,
-                                        useNce,
-                                        memoryConfiguration,
-                                        vSyncMode,
-                                        enableDocked,
-                                        enablePptc,
-                                        enableLowPowerPptc,
-                                        enableJitCacheEviction,
-                                        enableFsIntegrityChecks,
-                                        fsGlobalAccessLogMode,
-                                        ignoreMissingServices,
-                                        enableShaderCache,
-                                        enableTextureRecompression,
-                                        enableMacroHLE,
-                                        stretchToFullscreen,
-                                        resScale,
-                                        maxAnisotropy,
-                                        useVirtualController,
-                                        isGrid,
-                                        useSwitchLayout,
-                                        enableMotion,
-                                        enablePerformanceMode,
-                                        controllerStickSensitivity,
-                                        enableStubLogs,
-                                        enableInfoLogs,
-                                        enableWarningLogs,
-                                        enableErrorLogs,
-                                        enableGuestLogs,
-                                        enableFsAccessLogs,
-                                        enableTraceLogs,
-                                        enableDebugLogs,
-                                        enableGraphicsLogs,
-                                        systemLanguage,
-                                        regionCode
-                                    )
-
-                                    // Controller Scale wird separat direkt in QuickSettings gespeichert.
-                                    if (!isNavigating.value) {
-                                        isNavigating.value = true
-                                        mainViewModel.navController?.popBackStack()
-
-                                        CoroutineScope(Dispatchers.Main).launch {
-                                            delay(500)
-                                            isNavigating.value = false
-                                        }
-                                    }
-
-                                }) {
+                                IconButton(onClick = saveSettingsAndNavigateBack) {
                                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                 }
                             },
@@ -1185,6 +1185,7 @@ class SettingViews {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clickable { onCheckedChange(!isChecked) }
                     .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -1202,7 +1203,7 @@ class SettingViews {
                 }
                 Switch(
                     checked = isChecked,
-                    onCheckedChange = onCheckedChange
+                    onCheckedChange = null
                 )
             }
         }
@@ -1282,17 +1283,17 @@ class SettingViews {
                                             .padding(vertical = 12.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
+                                        RadioButton(
+                                            selected = option == selectedValue,
+                                            onClick = null,
+                                            modifier = Modifier.padding(end = 16.dp)
+                                        )
                                         Text(
                                             text = getDisplayText(option),
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             textAlign = TextAlign.Start,
                                             modifier = Modifier.weight(1f)
-                                        )
-                                        RadioButton(
-                                            selected = option == selectedValue,
-                                            onClick = null,
-                                            modifier = Modifier.padding(start = 16.dp)
                                         )
                                     }
                                 }
@@ -1331,6 +1332,64 @@ class SettingViews {
                     }
                 }
                 actionContent()
+            }
+        }
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        @Composable
+        fun SettingSliderItem(
+            title: String,
+            description: String,
+            value: Float,
+            valueRange: ClosedFloatingPointRange<Float>,
+            steps: Int,
+            onValueChange: (Float) -> Unit,
+            valueText: (Float) -> String,
+            onValueChangeFinished: (() -> Unit)? = null,
+            searchQuery: String = ""
+        ) {
+            if (searchQuery.isNotEmpty() && !title.contains(searchQuery, true) && !description.contains(searchQuery, true)) return
+
+            val interactionSource = remember { MutableInteractionSource() }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+            ) {
+                Text(text = title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                if (description.isNotEmpty()) {
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                    )
+                }
+                Slider(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = value,
+                    onValueChange = onValueChange,
+                    valueRange = valueRange,
+                    steps = steps,
+                    interactionSource = interactionSource,
+                    onValueChangeFinished = onValueChangeFinished,
+                    thumb = {
+                        Label(
+                            label = {
+                                PlainTooltip(
+                                    modifier = Modifier
+                                        .sizeIn(45.dp, 25.dp)
+                                        .wrapContentWidth()
+                                ) {
+                                    Text(valueText(value))
+                                }
+                            },
+                            interactionSource = interactionSource
+                        ) {
+                            Box(Modifier.size(ButtonDefaults.IconSize))
+                        }
+                    }
+                )
             }
         }
 
@@ -1554,27 +1613,22 @@ class SettingViews {
                     searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                val interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
-                SettingActionItem(
+                SettingSliderItem(
                     title = "Overlay transparency",
                     description = "Adjust the opacity of the floating menu.",
+                    value = overlayOpacity.value,
+                    valueRange = 0f..1f,
+                    steps = 20,
+                    onValueChange = {
+                        val clamped = it.coerceIn(0f, 1f)
+                        overlayOpacity.value = clamped
+                        val qs = QuickSettings(mainViewModel.activity)
+                        qs.overlayMenuOpacity = clamped
+                        qs.save()
+                    },
+                    valueText = { "${(it * 100f).toInt()}%" },
                     searchQuery = searchQuery
-                ) {
-                    Slider(
-                        modifier = Modifier.width(150.dp),
-                        value = overlayOpacity.value,
-                        onValueChange = {
-                            val clamped = it.coerceIn(0f, 1f)
-                            overlayOpacity.value = clamped
-                            val qs = QuickSettings(mainViewModel.activity)
-                            qs.overlayMenuOpacity = clamped
-                            qs.save()
-                        },
-                        valueRange = 0f..1f,
-                        steps = 20,
-                        interactionSource = interactionSource
-                    )
-                }
+                )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Use Grid",
@@ -1650,84 +1704,42 @@ class SettingViews {
                     )
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    val interactionSourceScale: MutableInteractionSource = remember { MutableInteractionSource() }
-                    SettingActionItem(
+                    SettingSliderItem(
                         title = "Controller Scale",
                         description = "Adjust the size of the virtual buttons.",
-                        searchQuery = searchQuery
-                    ) {
-                        Slider(
-                            modifier = Modifier.width(150.dp),
-                            value = controllerScale.value,
-                            onValueChange = { v ->
-                                val clamped = v.coerceIn(0.5f, 1.5f)
-                                controllerScale.value = clamped
-                                mainViewModel.controller?.let { c ->
-                                    try {
-                                        val m = c::class.java.getMethod("setScale", Float::class.javaPrimitiveType)
-                                        m.invoke(c, clamped)
-                                    } catch (_: Throwable) { }
-                                }
-                            },
-                            valueRange = 0.5f..1.5f,
-                            steps = 19,
-                            interactionSource = interactionSourceScale,
-                            thumb = {
-                                Label(
-                                    label = {
-                                        PlainTooltip(
-                                            modifier = Modifier
-                                                .sizeIn(45.dp, 25.dp)
-                                                .wrapContentWidth()
-                                        ) {
-                                            Text("${(controllerScale.value * 100f).roundToInt()}%")
-                                        }
-                                    },
-                                    interactionSource = interactionSourceScale
-                                ) {
-                                    Box(Modifier.size(ButtonDefaults.IconSize))
-                                }
-                            },
-                            onValueChangeFinished = {
-                                val qs = QuickSettings(mainViewModel.activity)
-                                qs.controllerScale = controllerScale.value.coerceIn(0.5f, 1.5f)
-                                qs.save()
+                        value = controllerScale.value,
+                        valueRange = 0.5f..1.5f,
+                        steps = 19,
+                        onValueChange = { v ->
+                            val clamped = v.coerceIn(0.5f, 1.5f)
+                            controllerScale.value = clamped
+                            mainViewModel.controller?.let { c ->
+                                try {
+                                    val m = c::class.java.getMethod("setScale", Float::class.javaPrimitiveType)
+                                    m.invoke(c, clamped)
+                                } catch (_: Throwable) { }
                             }
-                        )
-                    }
+                        },
+                        valueText = { "${(it * 100f).roundToInt()}%" },
+                        onValueChangeFinished = {
+                            val qs = QuickSettings(mainViewModel.activity)
+                            qs.controllerScale = controllerScale.value.coerceIn(0.5f, 1.5f)
+                            qs.save()
+                        },
+                        searchQuery = searchQuery
+                    )
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    val interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
-                    SettingActionItem(
+                    SettingSliderItem(
                         title = "Stick Sensitivity",
                         description = "Adjust the responsiveness of the analog sticks.",
+                        value = controllerStickSensitivity.value,
+                        valueRange = 0.1f..2f,
+                        steps = 20,
+                        onValueChange = { controllerStickSensitivity.value = it },
+                        valueText = { "%.2f".format(it) },
                         searchQuery = searchQuery
-                    ) {
-                        Slider(
-                            modifier = Modifier.width(150.dp),
-                            value = controllerStickSensitivity.value,
-                            onValueChange = { controllerStickSensitivity.value = it },
-                            valueRange = 0.1f..2f,
-                            steps = 20,
-                            interactionSource = interactionSource,
-                            thumb = {
-                                Label(
-                                    label = {
-                                        PlainTooltip(
-                                            modifier = Modifier
-                                                .sizeIn(45.dp, 25.dp)
-                                                .wrapContentWidth()
-                                        ) {
-                                            Text("%.2f".format(controllerStickSensitivity.value))
-                                        }
-                                    },
-                                    interactionSource = interactionSource
-                                ) {
-                                    Box(Modifier.size(ButtonDefaults.IconSize))
-                                }
-                            }
-                        )
-                    }
+                    )
                 }
             }
 
