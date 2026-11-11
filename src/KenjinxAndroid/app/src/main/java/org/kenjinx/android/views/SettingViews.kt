@@ -385,7 +385,7 @@ class SettingViews {
                             )
                             3 -> UserInterfaceTab(
                                 orientationPref, overlayMenuPosition, overlayOpacity,
-                                isGrid, searchQuery
+                                isGrid, mainViewModel, searchQuery
                             )
                             4 -> GraphicsTab(
                                 enableShaderCache, enableTextureRecompression, enableMacroHLE,
@@ -1472,6 +1472,7 @@ class SettingViews {
             overlayMenuPosition: MutableState<OverlayMenuPosition>,
             overlayOpacity: MutableState<Float>,
             isGrid: MutableState<Boolean>,
+            mainViewModel: MainViewModel,
             searchQuery: String
         ) {
             SettingsCard(title = "Display", searchQuery = searchQuery) {
