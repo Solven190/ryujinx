@@ -1373,13 +1373,13 @@ class SettingViews {
             }
 
             SettingsCard(title = "GPU driver") {
-                var isDriverSelectorOpen by remember { mutableStateOf(false) }
+                val isDriverSelectorOpen = remember { mutableStateOf(false) }
                 SettingActionItem(
                     title = "Install custom driver",
                     description = "Opens the driver installation menu."
                 ) {
                     Button(
-                        onClick = { isDriverSelectorOpen = true },
+                        onClick = { isDriverSelectorOpen.value = true },
                         modifier = Modifier.padding(start = 8.dp)
                     ) {
                         Text("Install")
@@ -1388,7 +1388,7 @@ class SettingViews {
 
                 SimpleAlertDialog.Custom(
                     showDialog = isDriverSelectorOpen,
-                    onDismissRequest = { isDriverSelectorOpen = false },
+                    onDismissRequest = { isDriverSelectorOpen.value = false },
                     properties = DialogProperties(usePlatformDefaultWidth = false),
                 ) {
                     VulkanDriverViews.Main(settingsViewModel.activity, isDriverSelectorOpen)
