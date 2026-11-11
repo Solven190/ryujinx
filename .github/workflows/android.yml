@@ -81,12 +81,13 @@ jobs:
           accept-android-sdk-licenses: 'true'
           log-accepted-android-sdk-licenses: 'false'
 
-      - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+      - name: Setup ccache (skip installation)
+        uses: Chocobo1/setup-ccache-action@v1
         with:
-          key: ${{ matrix.name }}
-          max-size: ${{ env.CCACHE_MAXSIZE }}
-          variant: ccache
+          install_ccache: false
+          update_packager_index: false
+          ccache_options: |
+            max_size=2G
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
