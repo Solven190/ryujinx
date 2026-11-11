@@ -6,6 +6,7 @@ import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +31,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -37,16 +40,32 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.VideogameAsset
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -64,6 +83,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -72,6 +93,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -142,7 +164,50 @@ class HomeViews {
                 null
             }
         }
-        @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+
+        @OptIn(ExperimentalFoundationApi::class)
+        @Composable
+        fun ContextMenuItem(
+            icon: ImageVector,
+            text: String,
+            isPrimary: Boolean = false,
+            onClick: () -> Unit
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onClick() }
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isPrimary) MaterialTheme.colorScheme.primary 
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = text,
+                        tint = if (isPrimary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (isPrimary) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isPrimary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
         @Composable
         fun Home(
             viewModel: HomeViewModel = HomeViewModel(),
@@ -393,127 +458,118 @@ class HomeViews {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
-                                .background(MaterialTheme.colorScheme.surface),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                                .background(MaterialTheme.colorScheme.surface)
                         ) {
                             Row(
-                                horizontalArrangement = Arrangement.Start,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(end = 8.dp)
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                        .size(56.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(
-                                            if (refreshUser && viewModel.mainViewModel?.userViewModel?.openedUser?.userPicture?.isNotEmpty() == true) {
-                                                Color.Transparent
-                                            } else {
-                                                MaterialTheme.colorScheme.surface
-                                            }
-                                        )
-                                        .border(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.outline,
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable {
-                                            if (!isNavigating.value) {
-                                                isNavigating.value = true
-                                                val currentRoute = navController?.currentDestination?.route
-                                                if (currentRoute != "user") {
-                                                    navController?.navigate("user") {
-                                                        launchSingleTop = true
-                                                        restoreState = true
-                                                    }
-                                                }
-                                                CoroutineScope(Dispatchers.Main).launch {
-                                                    delay(500)
-                                                    isNavigating.value = false
-                                                }
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (refreshUser && viewModel.mainViewModel?.userViewModel?.openedUser?.userPicture?.isNotEmpty() == true) {
-                                        val pic = viewModel.mainViewModel.userViewModel.openedUser.userPicture
-                                        Image(
-                                            bitmap = BitmapFactory.decodeByteArray(
-                                                pic,
-                                                0,
-                                                pic?.size ?: 0
-                                            ).asImageBitmap(),
-                                            contentDescription = "user image",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    } else {
-                                        Icon(
-                                            Icons.Filled.Person,
-                                            contentDescription = "User",
-                                            modifier = Modifier.size(28.dp),
-                                            tint = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-
-                                // Settings
-                                IconButton(
-                                    onClick = {
-                                        if (!isNavigating.value) {
-                                            isNavigating.value = true
-                                            val currentRoute = navController?.currentDestination?.route
-                                            if (currentRoute != "settings") {
-                                                navController?.navigate("settings") {
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
-                                            }
-                                            CoroutineScope(Dispatchers.Main).launch {
-                                                delay(500)
-                                                isNavigating.value = false
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .border(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.outline,
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                ) {
-                                    Icon(Icons.Filled.Settings, contentDescription = "Settings")
-                                }
-
+                                Text(
+                                    text = "Library",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
-
+                            Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
                                 value = query.value,
                                 onValueChange = { query.value = it },
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .fillMaxWidth()
                                     .height(56.dp),
                                 placeholder = {
-                                    Text("Search...", modifier = Modifier.padding(bottom = 4.dp))
+                                    Text("Search games...", modifier = Modifier.padding(bottom = 4.dp))
                                 },
                                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
                                 singleLine = true,
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(50),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    disabledContainerColor = Color.Transparent,
-                                    errorContainerColor = Color.Transparent,
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                )
+                            )
+                        }
+                    },
+                    bottomBar = {
+                        NavigationBar(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 8.dp
+                        ) {
+                            NavigationBarItem(
+                                selected = true,
+                                onClick = { },
+                                icon = { Icon(Icons.Outlined.VideogameAsset, contentDescription = "Library") },
+                                label = { Text("Library") },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                            NavigationBarItem(
+                                selected = false,
+                                onClick = {
+                                    if (!isNavigating.value) {
+                                        isNavigating.value = true
+                                        val currentRoute = navController?.currentDestination?.route
+                                        if (currentRoute != "settings") {
+                                            navController?.navigate("settings") {
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        }
+                                        CoroutineScope(Dispatchers.Main).launch {
+                                            delay(500)
+                                            isNavigating.value = false
+                                        }
+                                    }
+                                },
+                                icon = { Icon(Icons.Outlined.Settings, contentDescription = "Settings") },
+                                label = { Text("Settings") },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                            NavigationBarItem(
+                                selected = false,
+                                onClick = {
+                                    if (!isNavigating.value) {
+                                        isNavigating.value = true
+                                        val currentRoute = navController?.currentDestination?.route
+                                        if (currentRoute != "user") {
+                                            navController?.navigate("user") {
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        }
+                                        CoroutineScope(Dispatchers.Main).launch {
+                                            delay(500)
+                                            isNavigating.value = false
+                                        }
+                                    }
+                                },
+                                icon = { Icon(Icons.Outlined.Person, contentDescription = "User") },
+                                label = { Text("User") },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             )
                         }
@@ -720,162 +776,159 @@ class HomeViews {
                         }
                     }
 
-                if (showAppActions.value)
-                    ModalBottomSheet(
-                        content = {
-                            Row(
-                                modifier = Modifier.padding(8.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                if (showAppActions.value) {
-                                    IconButton(onClick = {
-                                        if (viewModel.mainViewModel?.selected != null) {
+                if (showAppActions.value) {
+                    var showGameManagerSubMenu by remember { mutableStateOf(false) }
+                    val gm = viewModel.mainViewModel?.selected
 
-                                            // Press the cheat buttons before starting (Run button).
-                                            val gmSel = viewModel.mainViewModel.selected!!
-                                            val tId = gmSel.titleId ?: ""
-                                            val act = viewModel.activity
-
-                                            thread {
-                                                showLoading.value = true
-                                                val success = viewModel.mainViewModel.loadGame(
-                                                    gmSel
-                                                )
-                                                if (success == 1) {
-                                                    launchOnUiThread {
-                                                        viewModel.mainViewModel.navigateToGame()
+                    Dialog(onDismissRequest = { showAppActions.value = false; selectedModel.value = null }) {
+                        Surface(
+                            shape = RoundedCornerShape(28.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            tonalElevation = 6.dp
+                        ) {
+                            AnimatedContent(targetState = showGameManagerSubMenu, label = "menu_transition") { isManager ->
+                                if (!isManager) {
+                                    Column(modifier = Modifier.padding(vertical = 16.dp)) {
+                                        // Start Game
+                                        ContextMenuItem(
+                                            icon = Icons.Outlined.PlayArrow,
+                                            text = "Start game",
+                                            isPrimary = true
+                                        ) {
+                                            showAppActions.value = false
+                                            selectedModel.value = null
+                                            if (gm != null) {
+                                                thread {
+                                                    showLoading.value = true
+                                                    val success = viewModel.mainViewModel.loadGame(gm)
+                                                    if (success == 1) {
+                                                        launchOnUiThread { viewModel.mainViewModel.navigateToGame() }
+                                                    } else {
+                                                        if (success == -2) showError.value = "Error loading update. Please re-add update file"
+                                                        gm.close()
                                                     }
-                                                } else {
-                                                    if (success == -2)
-                                                        showError.value =
-                                                            "Error loading update. Please re-add update file"
-                                                    viewModel.mainViewModel.selected!!.close()
+                                                    showLoading.value = false
                                                 }
-                                                showLoading.value = false
                                             }
                                         }
-                                    }) {
-                                        Icon(
-                                            org.kenjinx.android.Icons.playArrow(MaterialTheme.colorScheme.onSurface),
-                                            contentDescription = "Run"
-                                        )
-                                    }
 
-                                    // Create Shortcut
-                                    IconButton(onClick = {
-                                        val gm = viewModel.mainViewModel?.selected
-                                        if (gm != null) {
-                                            shortcutName.value = gm.titleName ?: ""
-                                            showShortcutDialog.value = true
-                                        }
-                                    }) {
-                                        Icon(
-                                            Icons.Filled.Add,
-                                            contentDescription = "Create Shortcut"
-                                        )
-                                    }
-
-                                    val showAppMenu = remember { mutableStateOf(false) }
-                                    Box {
-                                        IconButton(onClick = { showAppMenu.value = true }) {
-                                            Icon(Icons.Filled.Menu, contentDescription = "Menu")
-                                        }
-                                        DropdownMenu(
-                                            expanded = showAppMenu.value,
-                                            onDismissRequest = { showAppMenu.value = false }
+                                        // Game Manager
+                                        ContextMenuItem(
+                                            icon = Icons.Outlined.Tune,
+                                            text = "Game manager"
                                         ) {
-                                            DropdownMenuItem(
-                                                text = { Text(text = "Clear PPTC Cache") },
-                                                onClick = {
-                                                    showAppMenu.value = false
-                                                    viewModel.mainViewModel?.clearPptcCache(
-                                                        viewModel.mainViewModel.selected?.titleId ?: ""
-                                                    )
-                                                }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(text = "Purge Shader Cache") },
-                                                onClick = {
-                                                    showAppMenu.value = false
-                                                    viewModel.mainViewModel?.purgeShaderCache(
-                                                        viewModel.mainViewModel.selected?.titleId ?: ""
-                                                    )
-                                                }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(text = "Delete All Cache") },
-                                                onClick = {
-                                                    showAppMenu.value = false
-                                                    viewModel.mainViewModel?.deleteCache(
-                                                        viewModel.mainViewModel.selected?.titleId ?: ""
-                                                    )
-                                                }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(text = "Manage Updates") },
-                                                onClick = {
-                                                    showAppMenu.value = false
-                                                    openTitleUpdateDialog.value = true
-                                                }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(text = "Manage DLC") },
-                                                onClick = {
-                                                    showAppMenu.value = false
-                                                    openDlcDialog.value = true
-                                                }
-                                            )
-                                            // Manage Cheats
-                                            DropdownMenuItem(
-                                                text = { Text(text = "Manage Cheats") },
-                                                onClick = {
-                                                    showAppMenu.value = false
-                                                    val gm = viewModel.mainViewModel?.selected
-                                                    val act = viewModel.activity
-                                                    if (gm != null && !gm.titleId.isNullOrEmpty() && act != null) {
-                                                        val titleId = gm.titleId!!
-                                                        cheatsForSelected.value = loadCheatsFromDisk(act, titleId)
-                                                        enabledCheatKeys.value = CheatPrefs(act).getEnabled(titleId)
-                                                        openCheatsDialog.value = true
-                                                    } else {
-                                                        showError.value = "No title selected."
-                                                    }
-                                                }
-                                            )
-                                            // Manage Mods
-                                            DropdownMenuItem(
-                                                text = { Text(text = "Manage Mods") },
-                                                onClick = {
-                                                    showAppMenu.value = false
-                                                    val gm = viewModel.mainViewModel?.selected
-                                                    val act = viewModel.activity
-                                                    if (gm != null && !gm.titleId.isNullOrEmpty() && act != null) {
-                                                        val titleId = gm.titleId!!
-                                                        modsForSelected.value = listMods(act, titleId)
-                                                        openModsDialog.value = true
-                                                    } else {
-                                                        showError.value = "No title selected."
-                                                    }
-                                                }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(text = "Manage Saves") },
-                                                onClick = {
-                                                    showAppMenu.value = false
-                                                    openSavesDialog.value = true
-                                                }
-                                            )
+                                            showGameManagerSubMenu = true
+                                        }
 
+                                        // Create Shortcut
+                                        ContextMenuItem(
+                                            icon = Icons.Outlined.Link,
+                                            text = "Create shortcut"
+                                        ) {
+                                            showAppActions.value = false
+                                            selectedModel.value = null
+                                            if (gm != null) {
+                                                shortcutName.value = gm.titleName ?: ""
+                                                showShortcutDialog.value = true
+                                            }
+                                        }
+
+                                        HorizontalDivider(
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                                            modifier = Modifier.padding(vertical = 8.dp)
+                                        )
+
+                                        // Manage Updates
+                                        ContextMenuItem(
+                                            icon = Icons.Outlined.SystemUpdate,
+                                            text = "Manage Updates"
+                                        ) {
+                                            showAppActions.value = false
+                                            selectedModel.value = null
+                                            openTitleUpdateDialog.value = true
+                                        }
+
+                                        // Manage DLC
+                                        ContextMenuItem(
+                                            icon = Icons.Outlined.Extension,
+                                            text = "Manage DLC"
+                                        ) {
+                                            showAppActions.value = false
+                                            selectedModel.value = null
+                                            openDlcDialog.value = true
+                                        }
+
+                                        // Clear Caches
+                                        ContextMenuItem(
+                                            icon = Icons.Outlined.DeleteSweep,
+                                            text = "Clear caches"
+                                        ) {
+                                            showAppActions.value = false
+                                            selectedModel.value = null
+                                            if (gm != null) {
+                                                viewModel.mainViewModel.clearPptcCache(gm.titleId ?: "")
+                                                viewModel.mainViewModel.purgeShaderCache(gm.titleId ?: "")
+                                                Toast.makeText(viewModel.activity, "Caches cleared", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Column(modifier = Modifier.padding(vertical = 16.dp)) {
+                                        Text(
+                                            text = "Game Manager",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                                        )
+                                        // Manage Cheats
+                                        ContextMenuItem(
+                                            icon = Icons.Outlined.BugReport,
+                                            text = "Manage Cheats"
+                                        ) {
+                                            showAppActions.value = false
+                                            selectedModel.value = null
+                                            val act = viewModel.activity
+                                            if (gm != null && !gm.titleId.isNullOrEmpty() && act != null) {
+                                                val titleId = gm.titleId!!
+                                                cheatsForSelected.value = loadCheatsFromDisk(act, titleId)
+                                                enabledCheatKeys.value = CheatPrefs(act).getEnabled(titleId)
+                                                openCheatsDialog.value = true
+                                            } else {
+                                                showError.value = "No title selected."
+                                            }
+                                        }
+                                        // Manage Mods
+                                        ContextMenuItem(
+                                            icon = Icons.Outlined.Build,
+                                            text = "Manage Mods"
+                                        ) {
+                                            showAppActions.value = false
+                                            selectedModel.value = null
+                                            val act = viewModel.activity
+                                            if (gm != null && !gm.titleId.isNullOrEmpty() && act != null) {
+                                                val titleId = gm.titleId!!
+                                                modsForSelected.value = listMods(act, titleId)
+                                                openModsDialog.value = true
+                                            } else {
+                                                showError.value = "No title selected."
+                                            }
+                                        }
+                                        // Manage Saves
+                                        ContextMenuItem(
+                                            icon = Icons.Outlined.Save,
+                                            text = "Manage Saves"
+                                        ) {
+                                            showAppActions.value = false
+                                            selectedModel.value = null
+                                            openSavesDialog.value = true
                                         }
                                     }
                                 }
                             }
-                        },
-                        onDismissRequest = {
-                            showAppActions.value = false
-                            selectedModel.value = null
                         }
-                    )
+                    }
+                }
 
                 // --- Cheats Bottom Sheet ---
                 if (openCheatsDialog.value) {
@@ -1244,7 +1297,7 @@ class HomeViews {
                                     val tId = gameModel.titleId ?: ""
                                     val act = viewModel.activity
 
-                                    val success = viewModel.mainViewModel?.loadGame(gameModel) ?: false
+                                    val success = viewModel.mainViewModel?.loadGame(gameModel) ?: 0
                                     if (success == 1) {
                                         launchOnUiThread { viewModel.mainViewModel?.navigateToGame() }
                                     } else {
@@ -1340,7 +1393,7 @@ class HomeViews {
                                     val tId = gameModel.titleId ?: ""
                                     val act = viewModel.activity
 
-                                    val success = viewModel.mainViewModel?.loadGame(gameModel) ?: false
+                                    val success = viewModel.mainViewModel?.loadGame(gameModel) ?: 0
                                     if (success == 1) {
                                         launchOnUiThread { viewModel.mainViewModel?.navigateToGame() }
                                     } else {
