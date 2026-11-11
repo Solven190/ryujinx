@@ -171,6 +171,7 @@ class SettingViews {
             val enablePerformanceMode = remember { mutableStateOf(true) }
             val controllerStickSensitivity = remember { mutableFloatStateOf(1.0f) }
 
+            // --- Controller Scale (0.5 .. 1.5), loaded directly from QuickSettings
             val controllerScale = remember {
                 mutableFloatStateOf(QuickSettings(mainViewModel.activity).controllerScale)
             }
@@ -186,13 +187,16 @@ class SettingViews {
             val enableGraphicsLogs = remember { mutableStateOf(true) }
             val isNavigating = remember { mutableStateOf(false) }
 
+            // Load orientation from QuickSettings
             val orientationPref = remember {
                 mutableStateOf(QuickSettings(mainViewModel.activity).orientationPreference)
             }
 
+            // Language & Region States
             val systemLanguage = remember { mutableStateOf(SystemLanguage.AmericanEnglish) }
             val regionCode = remember { mutableStateOf(RegionCode.USA) }
 
+            // Load overlay settings from QuickSettings
             val overlayMenuPosition = remember {
                 mutableStateOf(QuickSettings(mainViewModel.activity).overlayMenuPosition)
             }
@@ -200,6 +204,7 @@ class SettingViews {
                 mutableFloatStateOf(QuickSettings(mainViewModel.activity).overlayMenuOpacity.coerceIn(0f, 1f))
             }
 
+            // --- Disable Threaded Rendering (Load from QuickSettings)
             val disableThreadedRendering = remember {
                 mutableStateOf(QuickSettings(mainViewModel.activity).disableThreadedRendering)
             }
@@ -283,6 +288,7 @@ class SettingViews {
                     regionCode
                 )
 
+                // Controller Scale wird separat direkt in QuickSettings gespeichert.
                 if (!isNavigating.value) {
                     isNavigating.value = true
                     mainViewModel.navController?.popBackStack()
@@ -1569,9 +1575,11 @@ class SettingViews {
                         qs.orientationPreference = sel
                         qs.save()
 
+                        // 1) Set activity alignment
                         val act = mainViewModel.activity
                         act.requestedOrientation = sel.value
 
+                        // 2) Submit rotation/size immediately to the rendering
                         val rot = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                             act.display?.rotation
                         } else {
@@ -1698,11 +1706,12 @@ class SettingViews {
                             vcPreset.value = preset
                             val qs = QuickSettings(mainViewModel.activity)
                             qs.virtualControllerPreset = preset
-                            qs.save()
+                            qs.save() // sofort persistieren
                         },
                         searchQuery = searchQuery
                     )
 
+                    // --- Controller Scale Slider (0.5x .. 1.5x) ---
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     SettingSliderItem(
                         title = "Controller Scale",
@@ -1713,15 +1722,17 @@ class SettingViews {
                         onValueChange = { v ->
                             val clamped = v.coerceIn(0.5f, 1.5f)
                             controllerScale.value = clamped
+                            // Apply live to the active virtual controller (via reflection)
                             mainViewModel.controller?.let { c ->
                                 try {
                                     val m = c::class.java.getMethod("setScale", Float::class.javaPrimitiveType)
                                     m.invoke(c, clamped)
-                                } catch (_: Throwable) { }
+                                } catch (_: Throwable) { /* Ignore if layout is without setScale */ }
                             }
                         },
                         valueText = { "${(it * 100f).roundToInt()}%" },
                         onValueChangeFinished = {
+                            // Persist
                             val qs = QuickSettings(mainViewModel.activity)
                             qs.controllerScale = controllerScale.value.coerceIn(0.5f, 1.5f)
                             qs.save()
