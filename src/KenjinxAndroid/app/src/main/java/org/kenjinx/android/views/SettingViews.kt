@@ -19,21 +19,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.FileOpen
@@ -43,7 +37,6 @@ import androidx.compose.material.icons.outlined.Panorama
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VideogameAsset
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,16 +44,16 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Label
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -73,6 +66,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -85,7 +79,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.concurrent.thread
-import kotlin.math.roundToInt
 import org.kenjinx.android.MainActivity
 import org.kenjinx.android.providers.DocumentProvider
 import org.kenjinx.android.viewmodels.DataImportState
@@ -97,8 +90,6 @@ import org.kenjinx.android.viewmodels.SettingsViewModel
 import org.kenjinx.android.viewmodels.MemoryConfiguration
 import org.kenjinx.android.viewmodels.MemoryManagerMode
 import org.kenjinx.android.viewmodels.VSyncMode
-import org.kenjinx.android.widgets.ActionButton
-import org.kenjinx.android.widgets.DropdownSelector
 import org.kenjinx.android.widgets.SimpleAlertDialog
 
 // >>> QuickSettings + OrientationPreference
@@ -124,6 +115,8 @@ class SettingViews {
         @Composable
         fun Main(settingsViewModel: SettingsViewModel, mainViewModel: MainViewModel) {
             var selectedCategoryIndex by remember { mutableIntStateOf(0) }
+            var isSearchActive by remember { mutableStateOf(false) }
+            var searchQuery by remember { mutableStateOf("") }
             
             val loaded = remember { mutableStateOf(false) }
             val memoryManagerMode = remember { mutableStateOf(MemoryManagerMode.HostMappedUnsafe) }
@@ -243,79 +236,104 @@ class SettingViews {
             }
 
             val categories = listOf(
-                Triple("Graphics", Icons.Outlined.Panorama, 0),
-                Triple("User Interface", Icons.Outlined.BarChart, 1),
+                Triple("CPU", Icons.Outlined.Memory, 0),
+                Triple("System", Icons.Outlined.Settings, 1),
                 Triple("Input", Icons.Outlined.VideogameAsset, 2),
-                Triple("System", Icons.Outlined.Settings, 3),
-                Triple("CPU", Icons.Outlined.Memory, 4),
-                Triple("Logging", Icons.Outlined.FileOpen, 5)
+                Triple("User Interface", Icons.Outlined.BarChart, 3),
+                Triple("Graphics", Icons.Outlined.Panorama, 4),
+                Triple("System Files", Icons.Outlined.Folder, 5),
+                Triple("Logging", Icons.Outlined.FileOpen, 6)
             )
 
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 topBar = {
-                    TopAppBar(title = {
-                        Text(text = "Settings")
-                    },
-                        navigationIcon = {
-                            IconButton(onClick = {
-                                settingsViewModel.save(
-                                    memoryManagerMode,
-                                    useNce,
-                                    memoryConfiguration,
-                                    vSyncMode,
-                                    enableDocked,
-                                    enablePptc,
-                                    enableLowPowerPptc,
-                                    enableJitCacheEviction,
-                                    enableFsIntegrityChecks,
-                                    fsGlobalAccessLogMode,
-                                    ignoreMissingServices,
-                                    enableShaderCache,
-                                    enableTextureRecompression,
-                                    enableMacroHLE,
-                                    stretchToFullscreen,
-                                    resScale,
-                                    maxAnisotropy,
-                                    useVirtualController,
-                                    isGrid,
-                                    useSwitchLayout,
-                                    enableMotion,
-                                    enablePerformanceMode,
-                                    controllerStickSensitivity,
-                                    enableStubLogs,
-                                    enableInfoLogs,
-                                    enableWarningLogs,
-                                    enableErrorLogs,
-                                    enableGuestLogs,
-                                    enableFsAccessLogs,
-                                    enableTraceLogs,
-                                    enableDebugLogs,
-                                    enableGraphicsLogs,
-                                    systemLanguage,
-                                    regionCode
+                    if (isSearchActive) {
+                        TopAppBar(
+                            title = {
+                                TextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    placeholder = { Text("Search settings...") },
+                                    colors = TextFieldDefaults.colors(
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedIndicatorColor = Color.Transparent
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
                                 )
-
-                                // Controller Scale wird separat direkt in QuickSettings gespeichert.
-                                if (!isNavigating.value) {
-                                    isNavigating.value = true
-                                    mainViewModel.navController?.popBackStack()
-
-                                    CoroutineScope(Dispatchers.Main).launch {
-                                        delay(500)
-                                        isNavigating.value = false
-                                    }
+                            },
+                            navigationIcon = {
+                                IconButton(onClick = { isSearchActive = false; searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close Search")
                                 }
-
-                            }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                             }
+                        )
+                    } else {
+                        TopAppBar(title = {
+                            Text(text = "Settings")
                         },
-                        actions = {
-                            IconButton(onClick = { /* Search action placeholder */ }) {
-                                Icon(Icons.Default.Search, contentDescription = "Search")
-                            }
-                        })
+                            navigationIcon = {
+                                IconButton(onClick = {
+                                    settingsViewModel.save(
+                                        memoryManagerMode,
+                                        useNce,
+                                        memoryConfiguration,
+                                        vSyncMode,
+                                        enableDocked,
+                                        enablePptc,
+                                        enableLowPowerPptc,
+                                        enableJitCacheEviction,
+                                        enableFsIntegrityChecks,
+                                        fsGlobalAccessLogMode,
+                                        ignoreMissingServices,
+                                        enableShaderCache,
+                                        enableTextureRecompression,
+                                        enableMacroHLE,
+                                        stretchToFullscreen,
+                                        resScale,
+                                        maxAnisotropy,
+                                        useVirtualController,
+                                        isGrid,
+                                        useSwitchLayout,
+                                        enableMotion,
+                                        enablePerformanceMode,
+                                        controllerStickSensitivity,
+                                        enableStubLogs,
+                                        enableInfoLogs,
+                                        enableWarningLogs,
+                                        enableErrorLogs,
+                                        enableGuestLogs,
+                                        enableFsAccessLogs,
+                                        enableTraceLogs,
+                                        enableDebugLogs,
+                                        enableGraphicsLogs,
+                                        systemLanguage,
+                                        regionCode
+                                    )
+
+                                    // Controller Scale wird separat direkt in QuickSettings gespeichert.
+                                    if (!isNavigating.value) {
+                                        isNavigating.value = true
+                                        mainViewModel.navController?.popBackStack()
+
+                                        CoroutineScope(Dispatchers.Main).launch {
+                                            delay(500)
+                                            isNavigating.value = false
+                                        }
+                                    }
+
+                                }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                }
+                            },
+                            actions = {
+                                IconButton(onClick = { isSearchActive = true }) {
+                                    Icon(Icons.Default.Search, contentDescription = "Search")
+                                }
+                            })
+                    }
                 }) { contentPadding ->
                 Column(
                     modifier = Modifier
@@ -326,7 +344,7 @@ class SettingViews {
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         itemsIndexed(categories) { index, category ->
@@ -351,33 +369,39 @@ class SettingViews {
                             .verticalScroll(rememberScrollState())
                     ) {
                         when (selectedCategoryIndex) {
-                            0 -> GraphicsTab(
-                                enableShaderCache, enableTextureRecompression, enableMacroHLE,
-                                disableThreadedRendering, stretchToFullscreen, resScale,
-                                maxAnisotropy, settingsViewModel, mainViewModel, threadToggleInitialized
+                            0 -> CpuTab(
+                                useNce, enablePptc, enableLowPowerPptc,
+                                enableJitCacheEviction, memoryManagerMode, searchQuery
                             )
-                            1 -> UserInterfaceTab(
-                                orientationPref, overlayMenuPosition, overlayOpacity,
-                                isGrid, firmwareVersion, showKeyDialog, showFirwmareDialog,
-                                showDataResetDialog, showDataImportDialog, settingsViewModel, mainViewModel
+                            1 -> SystemTab(
+                                systemLanguage, regionCode, vSyncMode, memoryConfiguration,
+                                enableFsIntegrityChecks, ignoreMissingServices, enablePerformanceMode,
+                                searchQuery
                             )
                             2 -> InputTab(
                                 useVirtualController, useSwitchLayout, vcPreset,
                                 controllerScale, controllerStickSensitivity, enableDocked,
-                                enableMotion, mainViewModel
+                                enableMotion, mainViewModel, searchQuery
                             )
-                            3 -> SystemTab(
-                                systemLanguage, regionCode, vSyncMode, memoryConfiguration,
-                                enableFsIntegrityChecks, ignoreMissingServices, enablePerformanceMode
+                            3 -> UserInterfaceTab(
+                                orientationPref, overlayMenuPosition, overlayOpacity,
+                                isGrid, searchQuery
                             )
-                            4 -> CpuTab(
-                                useNce, enablePptc, enableLowPowerPptc,
-                                enableJitCacheEviction, memoryManagerMode
+                            4 -> GraphicsTab(
+                                enableShaderCache, enableTextureRecompression, enableMacroHLE,
+                                disableThreadedRendering, stretchToFullscreen, resScale,
+                                maxAnisotropy, settingsViewModel, mainViewModel, threadToggleInitialized,
+                                searchQuery
                             )
-                            5 -> LoggingTab(
+                            5 -> SystemFilesTab(
+                                showKeyDialog, showFirwmareDialog, firmwareVersion,
+                                showDataResetDialog, showDataImportDialog, settingsViewModel, mainViewModel,
+                                searchQuery
+                            )
+                            6 -> LoggingTab(
                                 enableStubLogs, enableInfoLogs, enableWarningLogs, enableErrorLogs,
                                 enableGuestLogs, enableTraceLogs, enableFsAccessLogs, enableDebugLogs,
-                                enableGraphicsLogs, fsGlobalAccessLogMode, mainViewModel
+                                enableGraphicsLogs, fsGlobalAccessLogMode, mainViewModel, searchQuery
                             )
                         }
 
@@ -1108,8 +1132,9 @@ class SettingViews {
         }
 
         @Composable
-        fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+        fun SettingsCard(title: String, searchQuery: String = "", content: @Composable ColumnScope.() -> Unit) {
             Card(
+                shape = RoundedCornerShape(24.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -1119,13 +1144,15 @@ class SettingViews {
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
+                    if (searchQuery.isEmpty() || title.contains(searchQuery, true)) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                    }
                     content()
                 }
             }
@@ -1136,8 +1163,11 @@ class SettingViews {
             title: String,
             description: String,
             isChecked: Boolean,
-            onCheckedChange: (Boolean) -> Unit
+            onCheckedChange: (Boolean) -> Unit,
+            searchQuery: String = ""
         ) {
+            if (searchQuery.isNotEmpty() && !title.contains(searchQuery, true) && !description.contains(searchQuery, true)) return
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1146,7 +1176,7 @@ class SettingViews {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                    Text(text = title, style = MaterialTheme.typography.bodyLarge)
+                    Text(text = title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                     if (description.isNotEmpty()) {
                         Text(
                             text = description,
@@ -1170,8 +1200,11 @@ class SettingViews {
             selectedValue: T,
             options: List<T>,
             getDisplayText: (T) -> String,
-            onOptionSelected: (T) -> Unit
+            onOptionSelected: (T) -> Unit,
+            searchQuery: String = ""
         ) {
+            if (searchQuery.isNotEmpty() && !title.contains(searchQuery, true) && !description.contains(searchQuery, true)) return
+
             var showDialog by remember { mutableStateOf(false) }
 
             Column(
@@ -1183,7 +1216,7 @@ class SettingViews {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontWeight = FontWeight.Medium
                 )
                 if (description.isNotEmpty()) {
                     Text(
@@ -1195,8 +1228,8 @@ class SettingViews {
                 }
                 Text(
                     text = getDisplayText(selectedValue),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
@@ -1217,8 +1250,10 @@ class SettingViews {
                             Text(
                                 text = title,
                                 style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(bottom = 24.dp)
+                                textAlign = TextAlign.End,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 24.dp)
                             )
                             Column(
                                 modifier = Modifier.verticalScroll(rememberScrollState())
@@ -1232,17 +1267,19 @@ class SettingViews {
                                                 showDialog = false
                                             }
                                             .padding(vertical = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        RadioButton(
-                                            selected = option == selectedValue,
-                                            onClick = null,
-                                            modifier = Modifier.padding(end = 16.dp)
-                                        )
                                         Text(
                                             text = getDisplayText(option),
                                             style = MaterialTheme.typography.bodyLarge,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            textAlign = TextAlign.End,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        RadioButton(
+                                            selected = option == selectedValue,
+                                            onClick = null,
+                                            modifier = Modifier.padding(start = 16.dp)
                                         )
                                     }
                                 }
@@ -1257,8 +1294,11 @@ class SettingViews {
         fun SettingActionItem(
             title: String,
             description: String,
+            searchQuery: String = "",
             actionContent: @Composable () -> Unit
         ) {
+            if (searchQuery.isNotEmpty() && !title.contains(searchQuery, true) && !description.contains(searchQuery, true)) return
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1267,7 +1307,7 @@ class SettingViews {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                    Text(text = title, style = MaterialTheme.typography.bodyLarge)
+                    Text(text = title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                     if (description.isNotEmpty()) {
                         Text(
                             text = description,
@@ -1293,18 +1333,16 @@ class SettingViews {
             maxAnisotropy: MutableState<Float>,
             settingsViewModel: SettingsViewModel,
             mainViewModel: MainViewModel,
-            threadToggleInitialized: MutableState<Boolean>
+            threadToggleInitialized: MutableState<Boolean>,
+            searchQuery: String
         ) {
             val scaleOptions = listOf(
-                0.25f to "0.25X (180p/270p)",
-                0.5f to "0.5X (360p/540p)",
-                0.75f to "0.75X (540p/810p)",
-                1f to "1X (720p/1080p)",
-                1.25f to "1.25X (900p/1350p)",
-                1.5f to "1.5X (1080p/1620p)",
-                2f to "2X (1440p/2160p) (Slow)",
-                3f to "3X (2160p/3240p) (Slow)",
-                4f to "4X (2880p/4320p) (Slow)"
+                0.5f to "0.5x (360p/540p)",
+                0.75f to "0.75x (540p/810p)",
+                1f to "1.0x (720p/1080p)",
+                2f to "2.0x (1440p/2160p)",
+                3f to "3.0x (2160p/3240p)",
+                4f to "4.0x (2800p/4320p)"
             )
             
             val anisotropyOptions = listOf(
@@ -1315,14 +1353,15 @@ class SettingViews {
                 4.0f to "16x"
             )
 
-            SettingsCard(title = "Rendering") {
+            SettingsCard(title = "Rendering", searchQuery = searchQuery) {
                 SettingSelectionItem(
                     title = "Resolution (Handheld/Docked)",
                     description = "Takes effect at the next game start.",
                     selectedValue = resScale.value,
                     options = scaleOptions.map { it.first },
                     getDisplayText = { scale -> scaleOptions.find { it.first == scale }?.second ?: "${scale}x" },
-                    onOptionSelected = { scale -> resScale.value = scale }
+                    onOptionSelected = { scale -> resScale.value = scale },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSelectionItem(
@@ -1331,52 +1370,59 @@ class SettingViews {
                     selectedValue = maxAnisotropy.value,
                     options = anisotropyOptions.map { it.first },
                     getDisplayText = { anisotropy -> anisotropyOptions.find { it.first == anisotropy }?.second ?: "${anisotropy}x" },
-                    onOptionSelected = { anisotropy -> maxAnisotropy.value = anisotropy }
+                    onOptionSelected = { anisotropy -> maxAnisotropy.value = anisotropy },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Disable Threaded Rendering",
                     description = "Forces single-threaded rendering which may improve stability at the cost of performance.",
                     isChecked = disableThreadedRendering.value,
-                    onCheckedChange = { disableThreadedRendering.value = it }
+                    onCheckedChange = { disableThreadedRendering.value = it },
+                    searchQuery = searchQuery
                 )
             }
 
-            SettingsCard(title = "Post-Processing") {
+            SettingsCard(title = "Post-Processing", searchQuery = searchQuery) {
                 SettingSwitchItem(
                     title = "Stretch to Fullscreen",
                     description = "Forces the image to fill the entire display, ignoring aspect ratio.",
                     isChecked = stretchToFullscreen.value,
-                    onCheckedChange = { stretchToFullscreen.value = it }
+                    onCheckedChange = { stretchToFullscreen.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Shader Cache",
                     description = "Caches compiled shaders to reduce stuttering during gameplay.",
                     isChecked = enableShaderCache.value,
-                    onCheckedChange = { enableShaderCache.value = it }
+                    onCheckedChange = { enableShaderCache.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Texture Recompression",
                     description = "Recompresses textures to save memory at the cost of some CPU overhead.",
                     isChecked = enableTextureRecompression.value,
-                    onCheckedChange = { enableTextureRecompression.value = it }
+                    onCheckedChange = { enableTextureRecompression.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Macro HLE",
                     description = "Enables high-level emulation for certain macros.",
                     isChecked = enableMacroHLE.value,
-                    onCheckedChange = { enableMacroHLE.value = it }
+                    onCheckedChange = { enableMacroHLE.value = it },
+                    searchQuery = searchQuery
                 )
             }
 
-            SettingsCard(title = "GPU driver") {
+            SettingsCard(title = "GPU driver", searchQuery = searchQuery) {
                 val isDriverSelectorOpen = remember { mutableStateOf(false) }
                 SettingActionItem(
                     title = "Install custom driver",
-                    description = "Opens the driver installation menu."
+                    description = "Opens the driver installation menu.",
+                    searchQuery = searchQuery
                 ) {
                     Button(
                         onClick = { isDriverSelectorOpen.value = true },
@@ -1426,15 +1472,9 @@ class SettingViews {
             overlayMenuPosition: MutableState<OverlayMenuPosition>,
             overlayOpacity: MutableState<Float>,
             isGrid: MutableState<Boolean>,
-            firmwareVersion: MutableState<String>,
-            showKeyDialog: MutableState<Boolean>,
-            showFirwmareDialog: MutableState<Boolean>,
-            showDataResetDialog: MutableState<Boolean>,
-            showDataImportDialog: MutableState<Boolean>,
-            settingsViewModel: SettingsViewModel,
-            mainViewModel: MainViewModel
+            searchQuery: String
         ) {
-            SettingsCard(title = "Display") {
+            SettingsCard(title = "Display", searchQuery = searchQuery) {
                 SettingSelectionItem(
                     title = "Screen Orientation",
                     description = "Select how the app handles screen rotation.",
@@ -1466,7 +1506,8 @@ class SettingViews {
                             TODO("VERSION.SDK_INT < R")
                         }
                         mainViewModel.gameHost?.onOrientationOrSizeChanged(rot)
-                    }
+                    },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSelectionItem(
@@ -1496,13 +1537,15 @@ class SettingViews {
                         val qs = QuickSettings(mainViewModel.activity)
                         qs.overlayMenuPosition = pos
                         qs.save()
-                    }
+                    },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 val interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
                 SettingActionItem(
                     title = "Overlay transparency",
-                    description = "Adjust the opacity of the floating menu."
+                    description = "Adjust the opacity of the floating menu.",
+                    searchQuery = searchQuery
                 ) {
                     Slider(
                         modifier = Modifier.width(150.dp),
@@ -1516,30 +1559,7 @@ class SettingViews {
                         },
                         valueRange = 0f..1f,
                         steps = 20,
-                        interactionSource = interactionSource,
-                        thumb = {
-                            Label(
-                                label = {
-                                    PlainTooltip(
-                                        modifier = Modifier
-                                            .sizeIn(45.dp, 25.dp)
-                                            .wrapContentWidth()
-                                    ) {
-                                        Text("${(overlayOpacity.value * 100f).toInt()}%")
-                                    }
-                                },
-                                interactionSource = interactionSource
-                            ) {
-                                Icon(
-                                    imageVector = org.kenjinx.android.Icons.circle(
-                                        color = MaterialTheme.colorScheme.primary
-                                    ),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(ButtonDefaults.IconSize),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
+                        interactionSource = interactionSource
                     )
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -1547,49 +1567,330 @@ class SettingViews {
                     title = "Use Grid",
                     description = "Display games in a grid layout.",
                     isChecked = isGrid.value,
-                    onCheckedChange = { isGrid.value = it }
+                    onCheckedChange = { isGrid.value = it },
+                    searchQuery = searchQuery
+                )
+            }
+        }
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        @Composable
+        fun InputTab(
+            useVirtualController: MutableState<Boolean>,
+            useSwitchLayout: MutableState<Boolean>,
+            vcPreset: MutableState<VirtualControllerPreset>,
+            controllerScale: MutableState<Float>,
+            controllerStickSensitivity: MutableState<Float>,
+            enableDocked: MutableState<Boolean>,
+            enableMotion: MutableState<Boolean>,
+            mainViewModel: MainViewModel,
+            searchQuery: String
+        ) {
+            SettingsCard(title = "Virtual Controller", searchQuery = searchQuery) {
+                SettingSwitchItem(
+                    title = "Use Virtual Controller",
+                    description = "Enable the on-screen overlay controller.",
+                    isChecked = useVirtualController.value,
+                    onCheckedChange = { useVirtualController.value = it },
+                    searchQuery = searchQuery
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingSwitchItem(
+                    title = "Use Switch Controller Layout",
+                    description = "Use the standard Switch button arrangement.",
+                    isChecked = useSwitchLayout.value,
+                    onCheckedChange = { useSwitchLayout.value = it },
+                    searchQuery = searchQuery
+                )
+                
+                if (useVirtualController.value) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    SettingSelectionItem(
+                        title = "Controller Layout",
+                        description = "Select a predefined overlay layout.",
+                        selectedValue = vcPreset.value,
+                        options = listOf(
+                            VirtualControllerPreset.Default,
+                            VirtualControllerPreset.Layout2,
+                            VirtualControllerPreset.Layout3,
+                            VirtualControllerPreset.Layout4,
+                            VirtualControllerPreset.Layout5,
+                            VirtualControllerPreset.Layout6
+                        ),
+                        getDisplayText = { opt ->
+                            when (opt) {
+                                VirtualControllerPreset.Default -> "Default"
+                                VirtualControllerPreset.Layout2 -> "Layout 2"
+                                VirtualControllerPreset.Layout3 -> "Layout 3"
+                                VirtualControllerPreset.Layout4 -> "Layout 4"
+                                VirtualControllerPreset.Layout5 -> "Layout 5"
+                                VirtualControllerPreset.Layout6 -> "Layout 6"
+                            }
+                        },
+                        onOptionSelected = { preset ->
+                            vcPreset.value = preset
+                            val qs = QuickSettings(mainViewModel.activity)
+                            qs.virtualControllerPreset = preset
+                            qs.save()
+                        },
+                        searchQuery = searchQuery
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    val interactionSourceScale: MutableInteractionSource = remember { MutableInteractionSource() }
+                    SettingActionItem(
+                        title = "Controller Scale",
+                        description = "Adjust the size of the virtual buttons.",
+                        searchQuery = searchQuery
+                    ) {
+                        Slider(
+                            modifier = Modifier.width(150.dp),
+                            value = controllerScale.value,
+                            onValueChange = { v ->
+                                val clamped = v.coerceIn(0.5f, 1.5f)
+                                controllerScale.value = clamped
+                                mainViewModel.controller?.let { c ->
+                                    try {
+                                        val m = c::class.java.getMethod("setScale", Float::class.javaPrimitiveType)
+                                        m.invoke(c, clamped)
+                                    } catch (_: Throwable) { }
+                                }
+                            },
+                            valueRange = 0.5f..1.5f,
+                            steps = 19,
+                            interactionSource = interactionSourceScale,
+                            onValueChangeFinished = {
+                                val qs = QuickSettings(mainViewModel.activity)
+                                qs.controllerScale = controllerScale.value.coerceIn(0.5f, 1.5f)
+                                qs.save()
+                            }
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    val interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
+                    SettingActionItem(
+                        title = "Stick Sensitivity",
+                        description = "Adjust the responsiveness of the analog sticks.",
+                        searchQuery = searchQuery
+                    ) {
+                        Slider(
+                            modifier = Modifier.width(150.dp),
+                            value = controllerStickSensitivity.value,
+                            onValueChange = { controllerStickSensitivity.value = it },
+                            valueRange = 0.1f..2f,
+                            steps = 20,
+                            interactionSource = interactionSource
+                        )
+                    }
+                }
+            }
+
+            SettingsCard(title = "Hardware Input", searchQuery = searchQuery) {
+                SettingSwitchItem(
+                    title = "Docked Mode",
+                    description = "Simulate the console being in its dock.",
+                    isChecked = enableDocked.value,
+                    onCheckedChange = { enableDocked.value = it },
+                    searchQuery = searchQuery
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingSwitchItem(
+                    title = "Motion Sensor",
+                    description = "Enable gyroscope and accelerometer input.",
+                    isChecked = enableMotion.value,
+                    onCheckedChange = { enableMotion.value = it },
+                    searchQuery = searchQuery
+                )
+            }
+        }
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        @Composable
+        fun SystemTab(
+            systemLanguage: MutableState<SystemLanguage>,
+            regionCode: MutableState<RegionCode>,
+            vSyncMode: MutableState<VSyncMode>,
+            memoryConfiguration: MutableState<MemoryConfiguration>,
+            enableFsIntegrityChecks: MutableState<Boolean>,
+            ignoreMissingServices: MutableState<Boolean>,
+            enablePerformanceMode: MutableState<Boolean>,
+            searchQuery: String
+        ) {
+            SettingsCard(title = "Region & Language", searchQuery = searchQuery) {
+                val languages = SystemLanguage.entries.toTypedArray()
+                SettingSelectionItem(
+                    title = "System Language",
+                    description = "Language used by the emulated system.",
+                    selectedValue = systemLanguage.value,
+                    options = languages.toList(),
+                    getDisplayText = { lang ->
+                        when (lang) {
+                            SystemLanguage.Japanese -> "Japanese"
+                            SystemLanguage.AmericanEnglish -> "English (US)"
+                            SystemLanguage.French -> "French"
+                            SystemLanguage.German -> "German"
+                            SystemLanguage.Italian -> "Italian"
+                            SystemLanguage.Spanish -> "Spanish (EU)"
+                            SystemLanguage.Chinese -> "Chinese"
+                            SystemLanguage.Korean -> "Korean"
+                            SystemLanguage.Dutch -> "Dutch"
+                            SystemLanguage.Portuguese -> "Portuguese (EU)"
+                            SystemLanguage.Russian -> "Russian"
+                            SystemLanguage.Taiwanese -> "Chinese (Taiwan)"
+                            SystemLanguage.BritishEnglish -> "English (UK)"
+                            SystemLanguage.CanadianFrench -> "French (Canada)"
+                            SystemLanguage.LatinAmericanSpanish -> "Spanish (LatAm)"
+                            SystemLanguage.SimplifiedChinese -> "Chinese (Simplified)"
+                            SystemLanguage.TraditionalChinese -> "Chinese (Traditional)"
+                            SystemLanguage.BrazilianPortuguese -> "Portuguese (Brazil)"
+                        }
+                    },
+                    onOptionSelected = { lang -> systemLanguage.value = lang },
+                    searchQuery = searchQuery
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                val regions = RegionCode.entries.toTypedArray()
+                SettingSelectionItem(
+                    title = "Region",
+                    description = "Region code used by the emulated system.",
+                    selectedValue = regionCode.value,
+                    options = regions.toList(),
+                    getDisplayText = { region ->
+                        when (region) {
+                            RegionCode.Japan -> "Japan"
+                            RegionCode.USA -> "USA"
+                            RegionCode.Europe -> "Europe"
+                            RegionCode.Australia -> "Australia"
+                            RegionCode.China -> "China"
+                            RegionCode.Korea -> "Korea"
+                            RegionCode.Taiwan -> "Taiwan"
+                        }
+                    },
+                    onOptionSelected = { reg -> regionCode.value = reg },
+                    searchQuery = searchQuery
                 )
             }
 
-            SettingsCard(title = "System & Data") {
+            SettingsCard(title = "System Behaviour", searchQuery = searchQuery) {
+                val vSyncModes = VSyncMode.entries.toTypedArray()
+                SettingSelectionItem(
+                    title = "VSync",
+                    description = "Select the VSync mode.",
+                    selectedValue = vSyncMode.value,
+                    options = vSyncModes.toList(),
+                    getDisplayText = { mode ->
+                        when(mode) {
+                            VSyncMode.Switch -> "Switch"
+                            VSyncMode.Unbounded -> "Unbounded"
+                        }
+                    },
+                    onOptionSelected = { mode -> vSyncMode.value = mode },
+                    searchQuery = searchQuery
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                val memoryModes = MemoryConfiguration.entries.toTypedArray()
+                SettingSelectionItem(
+                    title = "DRAM Size",
+                    description = "Select the amount of memory allocated.",
+                    selectedValue = memoryConfiguration.value,
+                    options = memoryModes.toList(),
+                    getDisplayText = { configuration ->
+                        when(configuration) {
+                            MemoryConfiguration.MemoryConfiguration4GiB -> "4GiB"
+                            MemoryConfiguration.MemoryConfiguration6GiB -> "6GiB"
+                            MemoryConfiguration.MemoryConfiguration8GiB -> "8GiB"
+                            MemoryConfiguration.MemoryConfiguration10GiB -> "10GiB"
+                            MemoryConfiguration.MemoryConfiguration12GiB -> "12GiB"
+                        }
+                    },
+                    onOptionSelected = { configuration -> memoryConfiguration.value = configuration },
+                    searchQuery = searchQuery
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingSwitchItem(
+                    title = "Fs Integrity Check",
+                    description = "Verify file system integrity during emulation.",
+                    isChecked = enableFsIntegrityChecks.value,
+                    onCheckedChange = { enableFsIntegrityChecks.value = it },
+                    searchQuery = searchQuery
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingSwitchItem(
+                    title = "Ignore Missing Services",
+                    description = "Continue execution if a system service is missing.",
+                    isChecked = ignoreMissingServices.value,
+                    onCheckedChange = { ignoreMissingServices.value = it },
+                    searchQuery = searchQuery
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingSwitchItem(
+                    title = "Performance Mode",
+                    description = "Optimize emulation for maximum performance.",
+                    isChecked = enablePerformanceMode.value,
+                    onCheckedChange = { enablePerformanceMode.value = it },
+                    searchQuery = searchQuery
+                )
+            }
+        }
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        @Composable
+        fun SystemFilesTab(
+            showKeyDialog: MutableState<Boolean>,
+            showFirwmareDialog: MutableState<Boolean>,
+            firmwareVersion: MutableState<String>,
+            showDataResetDialog: MutableState<Boolean>,
+            showDataImportDialog: MutableState<Boolean>,
+            settingsViewModel: SettingsViewModel,
+            mainViewModel: MainViewModel,
+            searchQuery: String
+        ) {
+            SettingsCard(title = "System & Data", searchQuery = searchQuery) {
                 SettingActionItem(
                     title = "System Firmware",
-                    description = "Installed version: ${firmwareVersion.value}"
+                    description = "Installed version: ${firmwareVersion.value}",
+                    searchQuery = searchQuery
                 ) {
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
                     title = "Install Keys",
-                    description = "Install prod.keys or title.keys."
+                    description = "Install prod.keys or title.keys.",
+                    searchQuery = searchQuery
                 ) {
                     Button(onClick = { showKeyDialog.value = true }) { Text("Install") }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
                     title = "Install Firmware",
-                    description = "Install from a zip or xci file."
+                    description = "Install from a zip or xci file.",
+                    searchQuery = searchQuery
                 ) {
                     Button(onClick = { showFirwmareDialog.value = true }) { Text("Install") }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
                     title = "Add Game Folder",
-                    description = "Select a folder to scan for games."
+                    description = "Select a folder to scan for games.",
+                    searchQuery = searchQuery
                 ) {
                     Button(onClick = { settingsViewModel.openGameFolder() }) { Text("Add") }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
                     title = "Select Updates/DLC Folder",
-                    description = "Select a folder for updates and DLC."
+                    description = "Select a folder for updates and DLC.",
+                    searchQuery = searchQuery
                 ) {
                     Button(onClick = { settingsViewModel.openUpdatesFolder() }) { Text("Select") }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
                     title = "Open App Folder",
-                    description = "Open the internal app data folder."
+                    description = "Open the internal app data folder.",
+                    searchQuery = searchQuery
                 ) {
                     Button(onClick = {
                         fun createIntent(action: String): Intent {
@@ -1622,309 +1923,22 @@ class SettingViews {
                 }
             }
 
-            SettingsCard(title = "App Data Management") {
+            SettingsCard(title = "App Data Management", searchQuery = searchQuery) {
                 SettingActionItem(
                     title = "Reinit App Data",
-                    description = "Resets games, profiles, and system folders."
+                    description = "Resets games, profiles, and system folders.",
+                    searchQuery = searchQuery
                 ) {
                     Button(onClick = { showDataResetDialog.value = true }) { Text("Reset") }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
                     title = "Import App Data",
-                    description = "Import from a previously exported zip file."
+                    description = "Import from a previously exported zip file.",
+                    searchQuery = searchQuery
                 ) {
                     Button(onClick = { showDataImportDialog.value = true }) { Text("Import") }
                 }
-            }
-        }
-
-        @OptIn(ExperimentalMaterial3Api::class)
-        @Composable
-        fun InputTab(
-            useVirtualController: MutableState<Boolean>,
-            useSwitchLayout: MutableState<Boolean>,
-            vcPreset: MutableState<VirtualControllerPreset>,
-            controllerScale: MutableState<Float>,
-            controllerStickSensitivity: MutableState<Float>,
-            enableDocked: MutableState<Boolean>,
-            enableMotion: MutableState<Boolean>,
-            mainViewModel: MainViewModel
-        ) {
-            SettingsCard(title = "Virtual Controller") {
-                SettingSwitchItem(
-                    title = "Use Virtual Controller",
-                    description = "Enable the on-screen overlay controller.",
-                    isChecked = useVirtualController.value,
-                    onCheckedChange = { useVirtualController.value = it }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingSwitchItem(
-                    title = "Use Switch Controller Layout",
-                    description = "Use the standard Switch button arrangement.",
-                    isChecked = useSwitchLayout.value,
-                    onCheckedChange = { useSwitchLayout.value = it }
-                )
-                
-                if (useVirtualController.value) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    SettingSelectionItem(
-                        title = "Controller Layout",
-                        description = "Select a predefined overlay layout.",
-                        selectedValue = vcPreset.value,
-                        options = listOf(
-                            VirtualControllerPreset.Default,
-                            VirtualControllerPreset.Layout2,
-                            VirtualControllerPreset.Layout3,
-                            VirtualControllerPreset.Layout4,
-                            VirtualControllerPreset.Layout5,
-                            VirtualControllerPreset.Layout6
-                        ),
-                        getDisplayText = { opt ->
-                            when (opt) {
-                                VirtualControllerPreset.Default -> "Default"
-                                VirtualControllerPreset.Layout2 -> "Layout 2"
-                                VirtualControllerPreset.Layout3 -> "Layout 3"
-                                VirtualControllerPreset.Layout4 -> "Layout 4"
-                                VirtualControllerPreset.Layout5 -> "Layout 5"
-                                VirtualControllerPreset.Layout6 -> "Layout 6"
-                            }
-                        },
-                        onOptionSelected = { preset ->
-                            vcPreset.value = preset
-                            val qs = QuickSettings(mainViewModel.activity)
-                            qs.virtualControllerPreset = preset
-                            qs.save()
-                        }
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    val interactionSourceScale: MutableInteractionSource = remember { MutableInteractionSource() }
-                    SettingActionItem(
-                        title = "Controller Scale",
-                        description = "Adjust the size of the virtual buttons."
-                    ) {
-                        Slider(
-                            modifier = Modifier.width(150.dp),
-                            value = controllerScale.value,
-                            onValueChange = { v ->
-                                val clamped = v.coerceIn(0.5f, 1.5f)
-                                controllerScale.value = clamped
-                                mainViewModel.controller?.let { c ->
-                                    try {
-                                        val m = c::class.java.getMethod("setScale", Float::class.javaPrimitiveType)
-                                        m.invoke(c, clamped)
-                                    } catch (_: Throwable) { }
-                                }
-                            },
-                            valueRange = 0.5f..1.5f,
-                            steps = 19,
-                            interactionSource = interactionSourceScale,
-                            thumb = {
-                                Label(
-                                    label = {
-                                        PlainTooltip(
-                                            modifier = Modifier
-                                                .sizeIn(45.dp, 25.dp)
-                                                .wrapContentWidth()
-                                        ) {
-                                            Text("${(controllerScale.value * 100f).roundToInt()}%")
-                                        }
-                                    },
-                                    interactionSource = interactionSourceScale
-                                ) {
-                                    Icon(
-                                        imageVector = org.kenjinx.android.Icons.circle(
-                                            color = MaterialTheme.colorScheme.primary
-                                        ),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(ButtonDefaults.IconSize),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            },
-                            onValueChangeFinished = {
-                                val qs = QuickSettings(mainViewModel.activity)
-                                qs.controllerScale = controllerScale.value.coerceIn(0.5f, 1.5f)
-                                qs.save()
-                            }
-                        )
-                    }
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    val interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
-                    SettingActionItem(
-                        title = "Stick Sensitivity",
-                        description = "Adjust the responsiveness of the analog sticks."
-                    ) {
-                        Slider(
-                            modifier = Modifier.width(150.dp),
-                            value = controllerStickSensitivity.value,
-                            onValueChange = { controllerStickSensitivity.value = it },
-                            valueRange = 0.1f..2f,
-                            steps = 20,
-                            interactionSource = interactionSource,
-                            thumb = {
-                                Label(
-                                    label = {
-                                        PlainTooltip(modifier = Modifier
-                                            .sizeIn(45.dp, 25.dp)
-                                            .wrapContentWidth()) {
-                                            Text("%.2f".format(controllerStickSensitivity.value))
-                                        }
-                                    },
-                                    interactionSource = interactionSource
-                                ) {
-                                    Icon(
-                                        imageVector = org.kenjinx.android.Icons.circle(
-                                            color = MaterialTheme.colorScheme.primary
-                                        ),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(ButtonDefaults.IconSize),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-
-            SettingsCard(title = "Hardware Input") {
-                SettingSwitchItem(
-                    title = "Docked Mode",
-                    description = "Simulate the console being in its dock.",
-                    isChecked = enableDocked.value,
-                    onCheckedChange = { enableDocked.value = it }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingSwitchItem(
-                    title = "Motion Sensor",
-                    description = "Enable gyroscope and accelerometer input.",
-                    isChecked = enableMotion.value,
-                    onCheckedChange = { enableMotion.value = it }
-                )
-            }
-        }
-
-        @OptIn(ExperimentalMaterial3Api::class)
-        @Composable
-        fun SystemTab(
-            systemLanguage: MutableState<SystemLanguage>,
-            regionCode: MutableState<RegionCode>,
-            vSyncMode: MutableState<VSyncMode>,
-            memoryConfiguration: MutableState<MemoryConfiguration>,
-            enableFsIntegrityChecks: MutableState<Boolean>,
-            ignoreMissingServices: MutableState<Boolean>,
-            enablePerformanceMode: MutableState<Boolean>
-        ) {
-            SettingsCard(title = "Region & Language") {
-                val languages = SystemLanguage.entries.toTypedArray()
-                SettingSelectionItem(
-                    title = "System Language",
-                    description = "Language used by the emulated system.",
-                    selectedValue = systemLanguage.value,
-                    options = languages.toList(),
-                    getDisplayText = { lang ->
-                        when (lang) {
-                            SystemLanguage.Japanese -> "Japanese"
-                            SystemLanguage.AmericanEnglish -> "English (US)"
-                            SystemLanguage.French -> "French"
-                            SystemLanguage.German -> "German"
-                            SystemLanguage.Italian -> "Italian"
-                            SystemLanguage.Spanish -> "Spanish (EU)"
-                            SystemLanguage.Chinese -> "Chinese"
-                            SystemLanguage.Korean -> "Korean"
-                            SystemLanguage.Dutch -> "Dutch"
-                            SystemLanguage.Portuguese -> "Portuguese (EU)"
-                            SystemLanguage.Russian -> "Russian"
-                            SystemLanguage.Taiwanese -> "Chinese (Taiwan)"
-                            SystemLanguage.BritishEnglish -> "English (UK)"
-                            SystemLanguage.CanadianFrench -> "French (Canada)"
-                            SystemLanguage.LatinAmericanSpanish -> "Spanish (LatAm)"
-                            SystemLanguage.SimplifiedChinese -> "Chinese (Simplified)"
-                            SystemLanguage.TraditionalChinese -> "Chinese (Traditional)"
-                            SystemLanguage.BrazilianPortuguese -> "Portuguese (Brazil)"
-                        }
-                    },
-                    onOptionSelected = { lang -> systemLanguage.value = lang }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                val regions = RegionCode.entries.toTypedArray()
-                SettingSelectionItem(
-                    title = "Region",
-                    description = "Region code used by the emulated system.",
-                    selectedValue = regionCode.value,
-                    options = regions.toList(),
-                    getDisplayText = { region ->
-                        when (region) {
-                            RegionCode.Japan -> "Japan"
-                            RegionCode.USA -> "USA"
-                            RegionCode.Europe -> "Europe"
-                            RegionCode.Australia -> "Australia"
-                            RegionCode.China -> "China"
-                            RegionCode.Korea -> "Korea"
-                            RegionCode.Taiwan -> "Taiwan"
-                        }
-                    },
-                    onOptionSelected = { reg -> regionCode.value = reg }
-                )
-            }
-
-            SettingsCard(title = "System Behaviour") {
-                val vSyncModes = VSyncMode.entries.toTypedArray()
-                SettingSelectionItem(
-                    title = "VSync",
-                    description = "Select the VSync mode.",
-                    selectedValue = vSyncMode.value,
-                    options = vSyncModes.toList(),
-                    getDisplayText = { mode ->
-                        when(mode) {
-                            VSyncMode.Switch -> "Switch"
-                            VSyncMode.Unbounded -> "Unbounded"
-                        }
-                    },
-                    onOptionSelected = { mode -> vSyncMode.value = mode }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                val memoryModes = MemoryConfiguration.entries.toTypedArray()
-                SettingSelectionItem(
-                    title = "DRAM Size",
-                    description = "Select the amount of memory allocated.",
-                    selectedValue = memoryConfiguration.value,
-                    options = memoryModes.toList(),
-                    getDisplayText = { configuration ->
-                        when(configuration) {
-                            MemoryConfiguration.MemoryConfiguration4GiB -> "4GiB"
-                            MemoryConfiguration.MemoryConfiguration6GiB -> "6GiB"
-                            MemoryConfiguration.MemoryConfiguration8GiB -> "8GiB"
-                            MemoryConfiguration.MemoryConfiguration10GiB -> "10GiB"
-                            MemoryConfiguration.MemoryConfiguration12GiB -> "12GiB"
-                        }
-                    },
-                    onOptionSelected = { configuration -> memoryConfiguration.value = configuration }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingSwitchItem(
-                    title = "Fs Integrity Check",
-                    description = "Verify file system integrity during emulation.",
-                    isChecked = enableFsIntegrityChecks.value,
-                    onCheckedChange = { enableFsIntegrityChecks.value = it }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingSwitchItem(
-                    title = "Ignore Missing Services",
-                    description = "Continue execution if a system service is missing.",
-                    isChecked = ignoreMissingServices.value,
-                    onCheckedChange = { ignoreMissingServices.value = it }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                SettingSwitchItem(
-                    title = "Performance Mode",
-                    description = "Optimize emulation for maximum performance.",
-                    isChecked = enablePerformanceMode.value,
-                    onCheckedChange = { enablePerformanceMode.value = it }
-                )
             }
         }
 
@@ -1935,35 +1949,40 @@ class SettingViews {
             enablePptc: MutableState<Boolean>,
             enableLowPowerPptc: MutableState<Boolean>,
             enableJitCacheEviction: MutableState<Boolean>,
-            memoryManagerMode: MutableState<MemoryManagerMode>
+            memoryManagerMode: MutableState<MemoryManagerMode>,
+            searchQuery: String
         ) {
-            SettingsCard(title = "CPU Emulation") {
+            SettingsCard(title = "CPU Emulation", searchQuery = searchQuery) {
                 SettingSwitchItem(
                     title = "NCE (Native Code Execution)",
                     description = "Execute translated code natively for better performance.",
                     isChecked = useNce.value,
-                    onCheckedChange = { useNce.value = it }
+                    onCheckedChange = { useNce.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "PPTC",
                     description = "Profiled Persistent Translation Cache.",
                     isChecked = enablePptc.value,
-                    onCheckedChange = { enablePptc.value = it }
+                    onCheckedChange = { enablePptc.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Low-Power PPTC",
                     description = "Reduce CPU usage for PPTC at the cost of slower loading.",
                     isChecked = enableLowPowerPptc.value,
-                    onCheckedChange = { enableLowPowerPptc.value = it }
+                    onCheckedChange = { enableLowPowerPptc.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Jit Cache Eviction",
                     description = "Evict old JIT compiled code to save memory.",
                     isChecked = enableJitCacheEviction.value,
-                    onCheckedChange = { enableJitCacheEviction.value = it }
+                    onCheckedChange = { enableJitCacheEviction.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 val modes = MemoryManagerMode.entries.toTypedArray()
@@ -1979,7 +1998,8 @@ class SettingViews {
                             MemoryManagerMode.HostMappedUnsafe -> "Host Unchecked (fastest, unsafe)"
                         }
                     },
-                    onOptionSelected = { mode -> memoryManagerMode.value = mode }
+                    onOptionSelected = { mode -> memoryManagerMode.value = mode },
+                    searchQuery = searchQuery
                 )
             }
         }
@@ -1997,74 +2017,84 @@ class SettingViews {
             enableDebugLogs: MutableState<Boolean>,
             enableGraphicsLogs: MutableState<Boolean>,
             fsGlobalAccessLogMode: MutableState<Int>,
-            mainViewModel: MainViewModel
+            mainViewModel: MainViewModel,
+            searchQuery: String
         ) {
-            SettingsCard(title = "Log Levels") {
+            SettingsCard(title = "Log Levels", searchQuery = searchQuery) {
                 SettingSwitchItem(
                     title = "Stub Logs",
                     description = "Log calls to unimplemented functions.",
                     isChecked = enableStubLogs.value,
-                    onCheckedChange = { enableStubLogs.value = it }
+                    onCheckedChange = { enableStubLogs.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Info Logs",
                     description = "General informational messages.",
                     isChecked = enableInfoLogs.value,
-                    onCheckedChange = { enableInfoLogs.value = it }
+                    onCheckedChange = { enableInfoLogs.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Warning Logs",
                     description = "Potential issues that don't stop execution.",
                     isChecked = enableWarningLogs.value,
-                    onCheckedChange = { enableWarningLogs.value = it }
+                    onCheckedChange = { enableWarningLogs.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Error Logs",
                     description = "Critical errors and failures.",
                     isChecked = enableErrorLogs.value,
-                    onCheckedChange = { enableErrorLogs.value = it }
+                    onCheckedChange = { enableErrorLogs.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Guest Logs",
                     description = "Logs generated by the emulated system.",
                     isChecked = enableGuestLogs.value,
-                    onCheckedChange = { enableGuestLogs.value = it }
+                    onCheckedChange = { enableGuestLogs.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Trace Logs",
                     description = "Detailed execution traces.",
                     isChecked = enableTraceLogs.value,
-                    onCheckedChange = { enableTraceLogs.value = it }
+                    onCheckedChange = { enableTraceLogs.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Fs Access Logs",
                     description = "Log file system access operations.",
                     isChecked = enableFsAccessLogs.value,
-                    onCheckedChange = { enableFsAccessLogs.value = it }
+                    onCheckedChange = { enableFsAccessLogs.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Debug Logs",
                     description = "Internal debugging information.",
                     isChecked = enableDebugLogs.value,
-                    onCheckedChange = { enableDebugLogs.value = it }
+                    onCheckedChange = { enableDebugLogs.value = it },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
                     title = "Graphics Logs",
                     description = "Logs related to the rendering pipeline.",
                     isChecked = enableGraphicsLogs.value,
-                    onCheckedChange = { enableGraphicsLogs.value = it }
+                    onCheckedChange = { enableGraphicsLogs.value = it },
+                    searchQuery = searchQuery
                 )
             }
 
-            SettingsCard(title = "Advanced") {
+            SettingsCard(title = "Advanced", searchQuery = searchQuery) {
                 val fsGlobalAccessOptions = listOf(0, 1, 2, 3)
                 SettingSelectionItem(
                     title = "Fs Global Access Log Mode",
@@ -2072,314 +2102,18 @@ class SettingViews {
                     selectedValue = fsGlobalAccessLogMode.value,
                     options = fsGlobalAccessOptions,
                     getDisplayText = { fsGlobalAccess -> fsGlobalAccess.toString() },
-                    onOptionSelected = { fsGlobalAccess -> fsGlobalAccessLogMode.value = fsGlobalAccess }
+                    onOptionSelected = { fsGlobalAccess -> fsGlobalAccessLogMode.value = fsGlobalAccess },
+                    searchQuery = searchQuery
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
                     title = "Export Logs",
-                    description = "Send the current log file for analysis."
+                    description = "Send the current log file for analysis.",
+                    searchQuery = searchQuery
                 ) {
                     Button(onClick = { mainViewModel.logging.requestExport() }) { Text("Send") }
                 }
             }
-        }
-
-        // ---- Overlay position dropdown ----
-        @Composable
-        fun OverlayPositionDropdown(
-            selectedPosition: OverlayMenuPosition,
-            onPositionSelected: (OverlayMenuPosition) -> Unit
-        ) {
-            val options = listOf(
-                OverlayMenuPosition.BottomMiddle,
-                OverlayMenuPosition.BottomLeft,
-                OverlayMenuPosition.BottomRight,
-                OverlayMenuPosition.TopMiddle,
-                OverlayMenuPosition.TopLeft,
-                OverlayMenuPosition.TopRight
-            )
-
-            DropdownSelector(
-                label = "Overlay Menu Position",
-                selectedValue = selectedPosition,
-                options = options,
-                getDisplayText = { opt ->
-                    when (opt) {
-                        OverlayMenuPosition.BottomMiddle -> "bottom middle"
-                        OverlayMenuPosition.BottomLeft   -> "bottom left"
-                        OverlayMenuPosition.BottomRight  -> "bottom right"
-                        OverlayMenuPosition.TopMiddle    -> "top middle"
-                        OverlayMenuPosition.TopLeft      -> "top left"
-                        OverlayMenuPosition.TopRight     -> "top right"
-                    }
-                },
-                onOptionSelected = onPositionSelected
-            )
-        }
-
-        // ---- Dropdowns for language & region ----
-
-        @Composable
-        fun LanguageDropdown(
-            selectedLanguage: SystemLanguage,
-            onLanguageSelected: (SystemLanguage) -> Unit
-        ) {
-            val options = SystemLanguage.entries.toTypedArray()
-            DropdownSelector(
-                label = "System Language",
-                selectedValue = selectedLanguage,
-                options = options.toList(),
-                getDisplayText = { lang ->
-                    when (lang) {
-                        SystemLanguage.Japanese -> "Japanese"
-                        SystemLanguage.AmericanEnglish -> "English (US)"
-                        SystemLanguage.French -> "French"
-                        SystemLanguage.German -> "German"
-                        SystemLanguage.Italian -> "Italian"
-                        SystemLanguage.Spanish -> "Spanish (EU)"
-                        SystemLanguage.Chinese -> "Chinese"
-                        SystemLanguage.Korean -> "Korean"
-                        SystemLanguage.Dutch -> "Dutch"
-                        SystemLanguage.Portuguese -> "Portuguese (EU)"
-                        SystemLanguage.Russian -> "Russian"
-                        SystemLanguage.Taiwanese -> "Chinese (Taiwan)"
-                        SystemLanguage.BritishEnglish -> "English (UK)"
-                        SystemLanguage.CanadianFrench -> "French (Canada)"
-                        SystemLanguage.LatinAmericanSpanish -> "Spanish (LatAm)"
-                        SystemLanguage.SimplifiedChinese -> "Chinese (Simplified)"
-                        SystemLanguage.TraditionalChinese -> "Chinese (Traditional)"
-                        SystemLanguage.BrazilianPortuguese -> "Portuguese (Brazil)"
-                    }
-                },
-                onOptionSelected = onLanguageSelected
-            )
-        }
-
-        @Composable
-        fun RegionDropdown(
-            selectedRegion: RegionCode,
-            onRegionSelected: (RegionCode) -> Unit
-        ) {
-            val options = RegionCode.entries.toTypedArray()
-            DropdownSelector(
-                label = "Region",
-                selectedValue = selectedRegion,
-                options = options.toList(),
-                getDisplayText = { region ->
-                    when (region) {
-                        RegionCode.Japan -> "Japan"
-                        RegionCode.USA -> "USA"
-                        RegionCode.Europe -> "Europe"
-                        RegionCode.Australia -> "Australia"
-                        RegionCode.China -> "China"
-                        RegionCode.Korea -> "Korea"
-                        RegionCode.Taiwan -> "Taiwan"
-                    }
-                },
-                onOptionSelected = onRegionSelected
-            )
-        }
-
-        // ---- Dropdown for orientation ----
-        @Composable
-        fun OrientationDropdown(
-            selectedOrientation: OrientationPreference,
-            onOrientationSelected: (OrientationPreference) -> Unit
-        ) {
-            val options = listOf(
-                OrientationPreference.Sensor,
-                OrientationPreference.SensorLandscape,
-                OrientationPreference.SensorPortrait
-            )
-
-            DropdownSelector(
-                label = "Screen Orientation",
-                selectedValue = selectedOrientation,
-                options = options,
-                getDisplayText = { opt ->
-                    when (opt) {
-                        OrientationPreference.Sensor -> "Sensor"
-                        OrientationPreference.SensorLandscape -> "Sensor Landscape"
-                        OrientationPreference.SensorPortrait -> "Sensor Portrait"
-                    }
-                },
-                onOptionSelected = onOrientationSelected
-            )
-        }
-
-        @Composable
-        fun VirtualControllerPresetDropdown(
-            selectedPreset: VirtualControllerPreset,
-            onPresetSelected: (VirtualControllerPreset) -> Unit
-        ) {
-            val options = listOf(
-                VirtualControllerPreset.Default,
-                VirtualControllerPreset.Layout2,
-                VirtualControllerPreset.Layout3,
-                VirtualControllerPreset.Layout4,
-                VirtualControllerPreset.Layout5,
-                VirtualControllerPreset.Layout6
-            )
-
-            DropdownSelector(
-                label = "Controller Layout",
-                selectedValue = selectedPreset,
-                options = options,
-                getDisplayText = { opt ->
-                    when (opt) {
-                        VirtualControllerPreset.Default -> "Default"
-                        VirtualControllerPreset.Layout2 -> "Layout 2"
-                        VirtualControllerPreset.Layout3 -> "Layout 3"
-                        VirtualControllerPreset.Layout4 -> "Layout 4"
-                        VirtualControllerPreset.Layout5 -> "Layout 5"
-                        VirtualControllerPreset.Layout6 -> "Layout 6"
-                    }
-                },
-                onOptionSelected = onPresetSelected
-            )
-        }
-
-
-        @Composable
-        fun MemoryModeDropdown(
-            selectedMemoryManagerMode: MemoryManagerMode,
-            onModeSelected: (MemoryManagerMode) -> Unit
-        ) {
-            val modes = MemoryManagerMode.entries.toTypedArray()
-
-            DropdownSelector(
-                label = "Memory Manager Mode",
-                selectedValue = selectedMemoryManagerMode,
-                options = modes.toList(),
-                getDisplayText = { mode ->
-                    when(mode) {
-                        MemoryManagerMode.SoftwarePageTable -> "Software"
-                        MemoryManagerMode.HostMapped -> "Host (fast)"
-                        MemoryManagerMode.HostMappedUnsafe -> "Host Unchecked (fastest, unsafe)"
-                    }
-                },
-                onOptionSelected = onModeSelected
-            )
-        }
-
-        @Composable
-        fun VSyncDropdown(
-            selectedVSyncMode: VSyncMode,
-            onModeSelected: (VSyncMode) -> Unit
-        ) {
-            val modes = VSyncMode.entries.toTypedArray()
-
-            DropdownSelector(
-                label = "VSync",
-                selectedValue = selectedVSyncMode,
-                options = modes.toList(),
-                getDisplayText = { mode ->
-                    when(mode) {
-                        VSyncMode.Switch -> "Switch"
-                        VSyncMode.Unbounded -> "Unbounded"
-                    }
-                },
-                onOptionSelected = onModeSelected
-            )
-        }
-
-        @Composable
-        fun MemoryDropdown(
-            selectedMemoryConfiguration: MemoryConfiguration,
-            onConfigurationSelected: (MemoryConfiguration) -> Unit
-        ) {
-            val modes = MemoryConfiguration.entries.toTypedArray()
-
-            DropdownSelector(
-                label = "DRAM Size",
-                selectedValue = selectedMemoryConfiguration,
-                options = modes.toList(),
-                getDisplayText = { configuration ->
-                    when(configuration) {
-                        MemoryConfiguration.MemoryConfiguration4GiB -> "4GiB"
-                        MemoryConfiguration.MemoryConfiguration6GiB -> "6GiB"
-                        MemoryConfiguration.MemoryConfiguration8GiB -> "8GiB"
-                        MemoryConfiguration.MemoryConfiguration10GiB -> "10GiB"
-                        MemoryConfiguration.MemoryConfiguration12GiB -> "12GiB"
-                    }
-                },
-                onOptionSelected = onConfigurationSelected
-            )
-        }
-
-        @Composable
-        fun ResolutionScaleDropdown(
-            selectedScale: Float,
-            onScaleSelected: (Float) -> Unit
-        ) {
-            val scaleOptions = listOf(
-                0.25f to "0.25X (180p/270p)",
-                0.5f to "0.5X (360p/540p)",
-                0.75f to "0.75X (540p/810p)",
-                1f to "1X (720p/1080p)",
-                1.25f to "1.25X (900p/1350p)",
-                1.5f to "1.5X (1080p/1620p)",
-                2f to "2X (1440p/2160p) (Slow)",
-                3f to "3X (2160p/3240p) (Slow)",
-                4f to "4X (2880p/4320p) (Slow)"
-            )
-
-            DropdownSelector(
-                label = "Resolution Scale",
-                selectedValue = selectedScale,
-                options = scaleOptions.map { it.first },
-                getDisplayText = { scale ->
-                    scaleOptions.find { it.first == scale }?.second ?: "${scale}x"
-                },
-                onOptionSelected = onScaleSelected
-            )
-        }
-
-        @Composable
-        fun AnisotropicFilteringDropdown(
-            selectedAnisotropy: Float,
-            onAnisotropySelected: (Float) -> Unit
-        ) {
-            val anisotropyOptions = listOf(
-                0.0f to "0x",
-                1.0f to "2x",
-                2.0f to "4x",
-                3.0f to "8x",
-                4.0f to "16x"
-            )
-
-            DropdownSelector(
-                label = "Anisotropic Filtering",
-                selectedValue = selectedAnisotropy,
-                options = anisotropyOptions.map { it.first },
-                getDisplayText = { anisotropy ->
-                    anisotropyOptions.find { it.first == anisotropy }?.second ?: "${anisotropy}x"
-                },
-                onOptionSelected = onAnisotropySelected
-            )
-        }
-
-        @Composable
-        fun FsGlobalAccessLogModeDropdown(
-            selectedFsGlobalAccess: Int,
-            onFsGlobalAccessSelected: (Int) -> Unit
-        ) {
-            val fsGlobalAccessOptions = listOf(
-                0 to "0",
-                1 to "1",
-                2 to "2",
-                3 to "3"
-            )
-
-            DropdownSelector(
-                label = "Fs Global Access Log Mode",
-                selectedValue = selectedFsGlobalAccess,
-                options = fsGlobalAccessOptions.map { it.first },
-                getDisplayText = { fsGlobalAccess ->
-                    fsGlobalAccessOptions.find { it.first == fsGlobalAccess }?.second ?: "${fsGlobalAccess}x"
-                },
-                onOptionSelected = onFsGlobalAccessSelected
-            )
         }
     }
 }
