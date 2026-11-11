@@ -64,6 +64,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -1280,18 +1281,19 @@ class SettingViews {
             }
         }
 
+        @OptIn(ExperimentalMaterial3Api::class)
         @Composable
         fun GraphicsTab(
-            enableShaderCache: androidx.compose.runtime.MutableState<Boolean>,
-            enableTextureRecompression: androidx.compose.runtime.MutableState<Boolean>,
-            enableMacroHLE: androidx.compose.runtime.MutableState<Boolean>,
-            disableThreadedRendering: androidx.compose.runtime.MutableState<Boolean>,
-            stretchToFullscreen: androidx.compose.runtime.MutableState<Boolean>,
-            resScale: androidx.compose.runtime.MutableFloatState,
-            maxAnisotropy: androidx.compose.runtime.MutableFloatState,
+            enableShaderCache: MutableState<Boolean>,
+            enableTextureRecompression: MutableState<Boolean>,
+            enableMacroHLE: MutableState<Boolean>,
+            disableThreadedRendering: MutableState<Boolean>,
+            stretchToFullscreen: MutableState<Boolean>,
+            resScale: MutableState<Float>,
+            maxAnisotropy: MutableState<Float>,
             settingsViewModel: SettingsViewModel,
             mainViewModel: MainViewModel,
-            threadToggleInitialized: androidx.compose.runtime.MutableState<Boolean>
+            threadToggleInitialized: MutableState<Boolean>
         ) {
             val scaleOptions = listOf(
                 0.25f to "0.25X (180p/270p)",
@@ -1317,19 +1319,19 @@ class SettingViews {
                 SettingSelectionItem(
                     title = "Resolution (Handheld/Docked)",
                     description = "Takes effect at the next game start.",
-                    selectedValue = resScale.floatValue,
+                    selectedValue = resScale.value,
                     options = scaleOptions.map { it.first },
                     getDisplayText = { scale -> scaleOptions.find { it.first == scale }?.second ?: "${scale}x" },
-                    onOptionSelected = { scale -> resScale.floatValue = scale }
+                    onOptionSelected = { scale -> resScale.value = scale }
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSelectionItem(
                     title = "Anisotropic Filtering",
                     description = "Enhances texture quality at oblique angles.",
-                    selectedValue = maxAnisotropy.floatValue,
+                    selectedValue = maxAnisotropy.value,
                     options = anisotropyOptions.map { it.first },
                     getDisplayText = { anisotropy -> anisotropyOptions.find { it.first == anisotropy }?.second ?: "${anisotropy}x" },
-                    onOptionSelected = { anisotropy -> maxAnisotropy.floatValue = anisotropy }
+                    onOptionSelected = { anisotropy -> maxAnisotropy.value = anisotropy }
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingSwitchItem(
@@ -1417,17 +1419,18 @@ class SettingViews {
             }
         }
 
+        @OptIn(ExperimentalMaterial3Api::class)
         @Composable
         fun UserInterfaceTab(
-            orientationPref: androidx.compose.runtime.MutableState<OrientationPreference>,
-            overlayMenuPosition: androidx.compose.runtime.MutableState<OverlayMenuPosition>,
-            overlayOpacity: androidx.compose.runtime.MutableFloatState,
-            isGrid: androidx.compose.runtime.MutableState<Boolean>,
-            firmwareVersion: androidx.compose.runtime.MutableState<String>,
-            showKeyDialog: androidx.compose.runtime.MutableState<Boolean>,
-            showFirwmareDialog: androidx.compose.runtime.MutableState<Boolean>,
-            showDataResetDialog: androidx.compose.runtime.MutableState<Boolean>,
-            showDataImportDialog: androidx.compose.runtime.MutableState<Boolean>,
+            orientationPref: MutableState<OrientationPreference>,
+            overlayMenuPosition: MutableState<OverlayMenuPosition>,
+            overlayOpacity: MutableState<Float>,
+            isGrid: MutableState<Boolean>,
+            firmwareVersion: MutableState<String>,
+            showKeyDialog: MutableState<Boolean>,
+            showFirwmareDialog: MutableState<Boolean>,
+            showDataResetDialog: MutableState<Boolean>,
+            showDataImportDialog: MutableState<Boolean>,
             settingsViewModel: SettingsViewModel,
             mainViewModel: MainViewModel
         ) {
@@ -1503,10 +1506,10 @@ class SettingViews {
                 ) {
                     Slider(
                         modifier = Modifier.width(150.dp),
-                        value = overlayOpacity.floatValue,
+                        value = overlayOpacity.value,
                         onValueChange = {
                             val clamped = it.coerceIn(0f, 1f)
-                            overlayOpacity.floatValue = clamped
+                            overlayOpacity.value = clamped
                             val qs = QuickSettings(mainViewModel.activity)
                             qs.overlayMenuOpacity = clamped
                             qs.save()
@@ -1522,7 +1525,7 @@ class SettingViews {
                                             .sizeIn(45.dp, 25.dp)
                                             .wrapContentWidth()
                                     ) {
-                                        Text("${(overlayOpacity.floatValue * 100f).toInt()}%")
+                                        Text("${(overlayOpacity.value * 100f).toInt()}%")
                                     }
                                 },
                                 interactionSource = interactionSource
@@ -1636,15 +1639,16 @@ class SettingViews {
             }
         }
 
+        @OptIn(ExperimentalMaterial3Api::class)
         @Composable
         fun InputTab(
-            useVirtualController: androidx.compose.runtime.MutableState<Boolean>,
-            useSwitchLayout: androidx.compose.runtime.MutableState<Boolean>,
-            vcPreset: androidx.compose.runtime.MutableState<VirtualControllerPreset>,
-            controllerScale: androidx.compose.runtime.MutableFloatState,
-            controllerStickSensitivity: androidx.compose.runtime.MutableFloatState,
-            enableDocked: androidx.compose.runtime.MutableState<Boolean>,
-            enableMotion: androidx.compose.runtime.MutableState<Boolean>,
+            useVirtualController: MutableState<Boolean>,
+            useSwitchLayout: MutableState<Boolean>,
+            vcPreset: MutableState<VirtualControllerPreset>,
+            controllerScale: MutableState<Float>,
+            controllerStickSensitivity: MutableState<Float>,
+            enableDocked: MutableState<Boolean>,
+            enableMotion: MutableState<Boolean>,
             mainViewModel: MainViewModel
         ) {
             SettingsCard(title = "Virtual Controller") {
@@ -1702,10 +1706,10 @@ class SettingViews {
                     ) {
                         Slider(
                             modifier = Modifier.width(150.dp),
-                            value = controllerScale.floatValue,
+                            value = controllerScale.value,
                             onValueChange = { v ->
                                 val clamped = v.coerceIn(0.5f, 1.5f)
-                                controllerScale.floatValue = clamped
+                                controllerScale.value = clamped
                                 mainViewModel.controller?.let { c ->
                                     try {
                                         val m = c::class.java.getMethod("setScale", Float::class.javaPrimitiveType)
@@ -1724,7 +1728,7 @@ class SettingViews {
                                                 .sizeIn(45.dp, 25.dp)
                                                 .wrapContentWidth()
                                         ) {
-                                            Text("${(controllerScale.floatValue * 100f).roundToInt()}%")
+                                            Text("${(controllerScale.value * 100f).roundToInt()}%")
                                         }
                                     },
                                     interactionSource = interactionSourceScale
@@ -1741,7 +1745,7 @@ class SettingViews {
                             },
                             onValueChangeFinished = {
                                 val qs = QuickSettings(mainViewModel.activity)
-                                qs.controllerScale = controllerScale.floatValue.coerceIn(0.5f, 1.5f)
+                                qs.controllerScale = controllerScale.value.coerceIn(0.5f, 1.5f)
                                 qs.save()
                             }
                         )
@@ -1755,8 +1759,8 @@ class SettingViews {
                     ) {
                         Slider(
                             modifier = Modifier.width(150.dp),
-                            value = controllerStickSensitivity.floatValue,
-                            onValueChange = { controllerStickSensitivity.floatValue = it },
+                            value = controllerStickSensitivity.value,
+                            onValueChange = { controllerStickSensitivity.value = it },
                             valueRange = 0.1f..2f,
                             steps = 20,
                             interactionSource = interactionSource,
@@ -1766,7 +1770,7 @@ class SettingViews {
                                         PlainTooltip(modifier = Modifier
                                             .sizeIn(45.dp, 25.dp)
                                             .wrapContentWidth()) {
-                                            Text("%.2f".format(controllerStickSensitivity.floatValue))
+                                            Text("%.2f".format(controllerStickSensitivity.value))
                                         }
                                     },
                                     interactionSource = interactionSource
@@ -1803,15 +1807,16 @@ class SettingViews {
             }
         }
 
+        @OptIn(ExperimentalMaterial3Api::class)
         @Composable
         fun SystemTab(
-            systemLanguage: androidx.compose.runtime.MutableState<SystemLanguage>,
-            regionCode: androidx.compose.runtime.MutableState<RegionCode>,
-            vSyncMode: androidx.compose.runtime.MutableState<VSyncMode>,
-            memoryConfiguration: androidx.compose.runtime.MutableState<MemoryConfiguration>,
-            enableFsIntegrityChecks: androidx.compose.runtime.MutableState<Boolean>,
-            ignoreMissingServices: androidx.compose.runtime.MutableState<Boolean>,
-            enablePerformanceMode: androidx.compose.runtime.MutableState<Boolean>
+            systemLanguage: MutableState<SystemLanguage>,
+            regionCode: MutableState<RegionCode>,
+            vSyncMode: MutableState<VSyncMode>,
+            memoryConfiguration: MutableState<MemoryConfiguration>,
+            enableFsIntegrityChecks: MutableState<Boolean>,
+            ignoreMissingServices: MutableState<Boolean>,
+            enablePerformanceMode: MutableState<Boolean>
         ) {
             SettingsCard(title = "Region & Language") {
                 val languages = SystemLanguage.entries.toTypedArray()
@@ -1923,13 +1928,14 @@ class SettingViews {
             }
         }
 
+        @OptIn(ExperimentalMaterial3Api::class)
         @Composable
         fun CpuTab(
-            useNce: androidx.compose.runtime.MutableState<Boolean>,
-            enablePptc: androidx.compose.runtime.MutableState<Boolean>,
-            enableLowPowerPptc: androidx.compose.runtime.MutableState<Boolean>,
-            enableJitCacheEviction: androidx.compose.runtime.MutableState<Boolean>,
-            memoryManagerMode: androidx.compose.runtime.MutableState<MemoryManagerMode>
+            useNce: MutableState<Boolean>,
+            enablePptc: MutableState<Boolean>,
+            enableLowPowerPptc: MutableState<Boolean>,
+            enableJitCacheEviction: MutableState<Boolean>,
+            memoryManagerMode: MutableState<MemoryManagerMode>
         ) {
             SettingsCard(title = "CPU Emulation") {
                 SettingSwitchItem(
@@ -1978,18 +1984,19 @@ class SettingViews {
             }
         }
 
+        @OptIn(ExperimentalMaterial3Api::class)
         @Composable
         fun LoggingTab(
-            enableStubLogs: androidx.compose.runtime.MutableState<Boolean>,
-            enableInfoLogs: androidx.compose.runtime.MutableState<Boolean>,
-            enableWarningLogs: androidx.compose.runtime.MutableState<Boolean>,
-            enableErrorLogs: androidx.compose.runtime.MutableState<Boolean>,
-            enableGuestLogs: androidx.compose.runtime.MutableState<Boolean>,
-            enableTraceLogs: androidx.compose.runtime.MutableState<Boolean>,
-            enableFsAccessLogs: androidx.compose.runtime.MutableState<Boolean>,
-            enableDebugLogs: androidx.compose.runtime.MutableState<Boolean>,
-            enableGraphicsLogs: androidx.compose.runtime.MutableState<Boolean>,
-            fsGlobalAccessLogMode: androidx.compose.runtime.MutableIntState,
+            enableStubLogs: MutableState<Boolean>,
+            enableInfoLogs: MutableState<Boolean>,
+            enableWarningLogs: MutableState<Boolean>,
+            enableErrorLogs: MutableState<Boolean>,
+            enableGuestLogs: MutableState<Boolean>,
+            enableTraceLogs: MutableState<Boolean>,
+            enableFsAccessLogs: MutableState<Boolean>,
+            enableDebugLogs: MutableState<Boolean>,
+            enableGraphicsLogs: MutableState<Boolean>,
+            fsGlobalAccessLogMode: MutableState<Int>,
             mainViewModel: MainViewModel
         ) {
             SettingsCard(title = "Log Levels") {
@@ -2062,10 +2069,10 @@ class SettingViews {
                 SettingSelectionItem(
                     title = "Fs Global Access Log Mode",
                     description = "Set the verbosity level for file system logs.",
-                    selectedValue = fsGlobalAccessLogMode.intValue,
+                    selectedValue = fsGlobalAccessLogMode.value,
                     options = fsGlobalAccessOptions,
                     getDisplayText = { fsGlobalAccess -> fsGlobalAccess.toString() },
-                    onOptionSelected = { fsGlobalAccess -> fsGlobalAccessLogMode.intValue = fsGlobalAccess }
+                    onOptionSelected = { fsGlobalAccess -> fsGlobalAccessLogMode.value = fsGlobalAccess }
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
