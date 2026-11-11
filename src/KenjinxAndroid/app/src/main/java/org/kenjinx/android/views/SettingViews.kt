@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -19,33 +20,45 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.outlined.DeveloperBoard
 import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Memory
-import androidx.compose.material.icons.outlined.Panorama
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VideogameAsset
-import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Label
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -79,6 +92,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.concurrent.thread
+import kotlin.math.roundToInt
 import org.kenjinx.android.MainActivity
 import org.kenjinx.android.providers.DocumentProvider
 import org.kenjinx.android.viewmodels.DataImportState
@@ -236,11 +250,11 @@ class SettingViews {
             }
 
             val categories = listOf(
-                Triple("CPU", Icons.Outlined.Memory, 0),
-                Triple("System", Icons.Outlined.Settings, 1),
-                Triple("Input", Icons.Outlined.VideogameAsset, 2),
-                Triple("User Interface", Icons.Outlined.BarChart, 3),
-                Triple("Graphics", Icons.Outlined.Panorama, 4),
+                Triple("System", Icons.Outlined.Settings, 0),
+                Triple("Graphics", Icons.Outlined.Palette, 1),
+                Triple("CPU", Icons.Outlined.DeveloperBoard, 2),
+                Triple("Input", Icons.Outlined.VideogameAsset, 3),
+                Triple("User Interface", Icons.Outlined.Dashboard, 4),
                 Triple("System Files", Icons.Outlined.Folder, 5),
                 Triple("Logging", Icons.Outlined.FileOpen, 6)
             )
@@ -369,29 +383,29 @@ class SettingViews {
                             .verticalScroll(rememberScrollState())
                     ) {
                         when (selectedCategoryIndex) {
-                            0 -> CpuTab(
-                                useNce, enablePptc, enableLowPowerPptc,
-                                enableJitCacheEviction, memoryManagerMode, searchQuery
-                            )
-                            1 -> SystemTab(
+                            0 -> SystemTab(
                                 systemLanguage, regionCode, vSyncMode, memoryConfiguration,
                                 enableFsIntegrityChecks, ignoreMissingServices, enablePerformanceMode,
                                 searchQuery
                             )
-                            2 -> InputTab(
-                                useVirtualController, useSwitchLayout, vcPreset,
-                                controllerScale, controllerStickSensitivity, enableDocked,
-                                enableMotion, mainViewModel, searchQuery
-                            )
-                            3 -> UserInterfaceTab(
-                                orientationPref, overlayMenuPosition, overlayOpacity,
-                                isGrid, mainViewModel, searchQuery
-                            )
-                            4 -> GraphicsTab(
+                            1 -> GraphicsTab(
                                 enableShaderCache, enableTextureRecompression, enableMacroHLE,
                                 disableThreadedRendering, stretchToFullscreen, resScale,
                                 maxAnisotropy, settingsViewModel, mainViewModel, threadToggleInitialized,
                                 searchQuery
+                            )
+                            2 -> CpuTab(
+                                useNce, enablePptc, enableLowPowerPptc,
+                                enableJitCacheEviction, memoryManagerMode, searchQuery
+                            )
+                            3 -> InputTab(
+                                useVirtualController, useSwitchLayout, vcPreset,
+                                controllerScale, controllerStickSensitivity, enableDocked,
+                                enableMotion, mainViewModel, searchQuery
+                            )
+                            4 -> UserInterfaceTab(
+                                orientationPref, overlayMenuPosition, overlayOpacity,
+                                isGrid, mainViewModel, searchQuery
                             )
                             5 -> SystemFilesTab(
                                 showKeyDialog, showFirwmareDialog, firmwareVersion,
@@ -1250,7 +1264,6 @@ class SettingViews {
                             Text(
                                 text = title,
                                 style = MaterialTheme.typography.headlineSmall,
-                                textAlign = TextAlign.End,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(bottom = 24.dp)
@@ -1273,7 +1286,7 @@ class SettingViews {
                                             text = getDisplayText(option),
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = MaterialTheme.colorScheme.onSurface,
-                                            textAlign = TextAlign.End,
+                                            textAlign = TextAlign.Start,
                                             modifier = Modifier.weight(1f)
                                         )
                                         RadioButton(
@@ -1424,11 +1437,10 @@ class SettingViews {
                     description = "Opens the driver installation menu.",
                     searchQuery = searchQuery
                 ) {
-                    Button(
-                        onClick = { isDriverSelectorOpen.value = true },
-                        modifier = Modifier.padding(start = 8.dp)
+                    FilledTonalIconButton(
+                        onClick = { isDriverSelectorOpen.value = true }
                     ) {
-                        Text("Install")
+                        Icon(Icons.Default.ArrowDownward, contentDescription = "Install")
                     }
                 }
 
@@ -1660,6 +1672,22 @@ class SettingViews {
                             valueRange = 0.5f..1.5f,
                             steps = 19,
                             interactionSource = interactionSourceScale,
+                            thumb = {
+                                Label(
+                                    label = {
+                                        PlainTooltip(
+                                            modifier = Modifier
+                                                .sizeIn(45.dp, 25.dp)
+                                                .wrapContentWidth()
+                                        ) {
+                                            Text("${(controllerScale.value * 100f).roundToInt()}%")
+                                        }
+                                    },
+                                    interactionSource = interactionSourceScale
+                                ) {
+                                    Box(Modifier.size(ButtonDefaults.IconSize))
+                                }
+                            },
                             onValueChangeFinished = {
                                 val qs = QuickSettings(mainViewModel.activity)
                                 qs.controllerScale = controllerScale.value.coerceIn(0.5f, 1.5f)
@@ -1681,7 +1709,23 @@ class SettingViews {
                             onValueChange = { controllerStickSensitivity.value = it },
                             valueRange = 0.1f..2f,
                             steps = 20,
-                            interactionSource = interactionSource
+                            interactionSource = interactionSource,
+                            thumb = {
+                                Label(
+                                    label = {
+                                        PlainTooltip(
+                                            modifier = Modifier
+                                                .sizeIn(45.dp, 25.dp)
+                                                .wrapContentWidth()
+                                        ) {
+                                            Text("%.2f".format(controllerStickSensitivity.value))
+                                        }
+                                    },
+                                    interactionSource = interactionSource
+                                ) {
+                                    Box(Modifier.size(ButtonDefaults.IconSize))
+                                }
+                            }
                         )
                     }
                 }
@@ -1861,7 +1905,9 @@ class SettingViews {
                     description = "Install prod.keys or title.keys.",
                     searchQuery = searchQuery
                 ) {
-                    Button(onClick = { showKeyDialog.value = true }) { Text("Install") }
+                    FilledTonalIconButton(onClick = { showKeyDialog.value = true }) {
+                        Icon(Icons.Default.ArrowDownward, contentDescription = "Install")
+                    }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
@@ -1869,7 +1915,9 @@ class SettingViews {
                     description = "Install from a zip or xci file.",
                     searchQuery = searchQuery
                 ) {
-                    Button(onClick = { showFirwmareDialog.value = true }) { Text("Install") }
+                    FilledTonalIconButton(onClick = { showFirwmareDialog.value = true }) {
+                        Icon(Icons.Default.ArrowDownward, contentDescription = "Install")
+                    }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
@@ -1877,7 +1925,9 @@ class SettingViews {
                     description = "Select a folder to scan for games.",
                     searchQuery = searchQuery
                 ) {
-                    Button(onClick = { settingsViewModel.openGameFolder() }) { Text("Add") }
+                    FilledTonalIconButton(onClick = { settingsViewModel.openGameFolder() }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add")
+                    }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
@@ -1885,7 +1935,9 @@ class SettingViews {
                     description = "Select a folder for updates and DLC.",
                     searchQuery = searchQuery
                 ) {
-                    Button(onClick = { settingsViewModel.openUpdatesFolder() }) { Text("Select") }
+                    FilledTonalIconButton(onClick = { settingsViewModel.openUpdatesFolder() }) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = "Select")
+                    }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
@@ -1893,7 +1945,7 @@ class SettingViews {
                     description = "Open the internal app data folder.",
                     searchQuery = searchQuery
                 ) {
-                    Button(onClick = {
+                    FilledTonalIconButton(onClick = {
                         fun createIntent(action: String): Intent {
                             val intent = Intent(action)
                             intent.addCategory(Intent.CATEGORY_DEFAULT)
@@ -1906,21 +1958,23 @@ class SettingViews {
                         }
                         try {
                             mainViewModel.activity.startActivity(createIntent(Intent.ACTION_VIEW))
-                            return@Button
+                            return@FilledTonalIconButton
                         } catch (_: ActivityNotFoundException) {}
                         try {
                             mainViewModel.activity.startActivity(createIntent("android.provider.action.BROWSE"))
-                            return@Button
+                            return@FilledTonalIconButton
                         } catch (_: ActivityNotFoundException) {}
                         try {
                             mainViewModel.activity.startActivity(createIntent("com.google.android.documentsui"))
-                            return@Button
+                            return@FilledTonalIconButton
                         } catch (_: ActivityNotFoundException) {}
                         try {
                             mainViewModel.activity.startActivity(createIntent("com.android.documentsui"))
-                            return@Button
+                            return@FilledTonalIconButton
                         } catch (_: ActivityNotFoundException) {}
-                    }) { Text("Open") }
+                    }) {
+                        Icon(Icons.Default.Folder, contentDescription = "Open")
+                    }
                 }
             }
 
@@ -1930,7 +1984,9 @@ class SettingViews {
                     description = "Resets games, profiles, and system folders.",
                     searchQuery = searchQuery
                 ) {
-                    Button(onClick = { showDataResetDialog.value = true }) { Text("Reset") }
+                    FilledTonalIconButton(onClick = { showDataResetDialog.value = true }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Reset")
+                    }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingActionItem(
@@ -1938,7 +1994,9 @@ class SettingViews {
                     description = "Import from a previously exported zip file.",
                     searchQuery = searchQuery
                 ) {
-                    Button(onClick = { showDataImportDialog.value = true }) { Text("Import") }
+                    FilledTonalIconButton(onClick = { showDataImportDialog.value = true }) {
+                        Icon(Icons.Default.Upload, contentDescription = "Import")
+                    }
                 }
             }
         }
@@ -2112,7 +2170,9 @@ class SettingViews {
                     description = "Send the current log file for analysis.",
                     searchQuery = searchQuery
                 ) {
-                    Button(onClick = { mainViewModel.logging.requestExport() }) { Text("Send") }
+                    FilledTonalIconButton(onClick = { mainViewModel.logging.requestExport() }) {
+                        Icon(Icons.Default.Upload, contentDescription = "Send")
+                    }
                 }
             }
         }
