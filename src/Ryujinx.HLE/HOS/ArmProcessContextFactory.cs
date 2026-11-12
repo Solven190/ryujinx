@@ -71,6 +71,13 @@ namespace Ryujinx.HLE.HOS
 
             bool isArm64Host = RuntimeInformation.ProcessArchitecture == Architecture.Arm64;
 
+            // Cap address space to avoid huge allocations on Android that cause out-of-bounds crashes in LightningJit
+            if (addressSpaceSize > 0x1D00000000)
+            {
+                Logger.Warning?.Print(LogClass.Cpu, $"Capping requested address space from 0x{addressSpaceSize:X} to 0x1D00000000 to prevent Android memory allocation failures.");
+                addressSpaceSize = 0x1D00000000;
+            }
+
             if (isArm64Host && for64Bit && context.Device.Configuration.UseHypervisor)
             {
                 if (OperatingSystem.IsMacOS())
@@ -163,7 +170,7 @@ namespace Ryujinx.HLE.HOS
 
                 if (addressSpaceSize != processContext.AddressSpaceSize)
                 {
-                    Logger.Warning?.Print(LogClass.Emulation, $"Allocated address space (0x{processContext.AddressSpaceSize:X}) is smaller than guest application requirements (0x{addressSpaceSize:X}).");
+                    Logger.Warning?.Print(LogClass.Emulation, $"Allocated address space (0x{processContext.AddressSpaceSize:X}) is smaller than guest application requirements (0x{addressSpaceSize:X})");
                 }
             }
 
