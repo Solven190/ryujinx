@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.documentfile.provider.DocumentFile
 import com.anggrayudi.storage.SimpleStorageHelper
 import com.sun.jna.JNIEnv
@@ -61,7 +63,17 @@ class MainActivity : BaseActivity() {
     private val TAG_FG = "FgPresent"
     private val delayedHandleIntent = object : Runnable { override fun run() { handleIntent() } }
     var storedIntent: Intent = Intent()
+    
+    // Custom setter to handle system bars visibility dynamically
     var isGameRunning = false
+        set(value) {
+            val wasRunning = field
+            field = value
+            if (wasRunning != value) {
+                updateSystemBarsVisibility(!value)
+            }
+        }
+        
     var isActive = false
     var storageHelper: SimpleStorageHelper? = null
     lateinit var uiHandler: UiHandler
@@ -81,6 +93,20 @@ class MainActivity : BaseActivity() {
     private fun rotLog(msg: String) {
         val enabled = BuildConfig.DEBUG && QuickSettings(this).enableDebugLogs
         if (enabled) Log.d(TAG_ROT, msg)
+    }
+
+    private fun updateSystemBarsVisibility(visible: Boolean) {
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        if (visible) {
+            windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
+            // Re-apply icon colors based on theme
+            val isDarkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            windowInsetsController.isAppearanceLightStatusBars = !isDarkTheme
+            windowInsetsController.isAppearanceLightNavigationBars = !isDarkTheme
+        } else {
+            windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        }
     }
 
     private val serviceStopReceiver = object : BroadcastReceiver() {
@@ -429,6 +455,9 @@ class MainActivity : BaseActivity() {
         coldResetIfZombie("onResume")
 
         applyOrientationPreference()
+        
+        // Ensure system bars are visible/hidden based on current game state
+        updateSystemBarsVisibility(!isGameRunning)
 
         // Enable display listener
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -712,7 +741,7 @@ class MainActivity : BaseActivity() {
 
     private fun hardColdReset(reason: String) {
         Log.d(TAG_FG, "Cold graphics reset ($reason)")
-        isGameRunning = false
+        isGameRunning = false // Triggers custom setter, restores system bars
         mainViewModel?.rendererReady = false
 
         try { setPresentEnabled(false, "cold reset: $reason") } catch (_: Throwable) {}
