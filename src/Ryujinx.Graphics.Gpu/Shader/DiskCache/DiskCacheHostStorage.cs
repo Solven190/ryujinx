@@ -27,7 +27,8 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         private const string SharedTocFileName = "shared.toc";
         private const string SharedDataFileName = "shared.data";
 
-        private readonly string _basePath;
+        // Removed readonly to allow disabling cache on permission error
+        private string _basePath;
 
         public bool CacheEnabled => !string.IsNullOrEmpty(_basePath);
 
@@ -199,7 +200,16 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
 
             if (CacheEnabled)
             {
-                Directory.CreateDirectory(basePath);
+                try
+                {
+                    Directory.CreateDirectory(basePath);
+                }
+                catch (Exception ex)
+                {
+                    // Fallback: disable cache if directory cannot be created (e.g. Android /data permission denied)
+                    Ryujinx.Common.Logging.Logger.Warning?.Print(Ryujinx.Common.Logging.LogClass.Gpu, $"Failed to create shader cache directory '{basePath}': {ex.Message}. Disabling disk cache.");
+                    _basePath = null;
+                }
             }
         }
 
@@ -209,6 +219,8 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <returns>Host programs count</returns>
         public int GetProgramCount()
         {
+            if (!CacheEnabled) return 0;
+
             string tocFilePath = Path.Combine(_basePath, SharedTocFileName);
 
             if (!File.Exists(tocFilePath))
@@ -273,6 +285,8 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <returns>True if a disk cache exists, false otherwise</returns>
         public bool CacheExists()
         {
+            if (!CacheEnabled) return false;
+
             string tocFilePath = Path.Combine(_basePath, SharedTocFileName);
             string dataFilePath = Path.Combine(_basePath, SharedDataFileName);
 
@@ -541,6 +555,8 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <returns>A collection of disk cache output streams</returns>
         public DiskCacheOutputStreams GetOutputStreams(GpuContext context)
         {
+            if (!CacheEnabled) return null;
+
             FileStream tocFileStream = DiskCacheCommon.OpenFile(_basePath, SharedTocFileName, writable: true);
             FileStream dataFileStream = DiskCacheCommon.OpenFile(_basePath, SharedDataFileName, writable: true);
 
@@ -559,6 +575,8 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <param name="streams">Output streams to use</param>
         public void AddShader(GpuContext context, CachedShaderProgram program, ReadOnlySpan<byte> hostCode, DiskCacheOutputStreams streams = null)
         {
+            if (!CacheEnabled) return;
+
             uint stagesBitMask = 0;
 
             for (int index = 0; index < program.Shaders.Length; index++)
@@ -637,6 +655,7 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// </summary>
         public void ClearGuestCache()
         {
+            if (!CacheEnabled) return;
             _guestStorage.ClearCache();
         }
 
@@ -646,6 +665,8 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <param name="context">GPU context</param>
         public void ClearSharedCache()
         {
+            if (!CacheEnabled) return;
+
             using FileStream tocFileStream = DiskCacheCommon.OpenFile(_basePath, SharedTocFileName, writable: true);
             using FileStream dataFileStream = DiskCacheCommon.OpenFile(_basePath, SharedDataFileName, writable: true);
 
@@ -659,6 +680,8 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <param name="context">GPU context</param>
         public void ClearHostCache(GpuContext context)
         {
+            if (!CacheEnabled) return;
+
             using FileStream tocFileStream = DiskCacheCommon.OpenFile(_basePath, GetHostTocFileName(context), writable: true);
             using FileStream dataFileStream = DiskCacheCommon.OpenFile(_basePath, GetHostDataFileName(context), writable: true);
 
