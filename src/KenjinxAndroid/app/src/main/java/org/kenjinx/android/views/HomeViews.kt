@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -651,6 +652,7 @@ class HomeViews {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .statusBarsPadding()
                                 .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)
                         ) {
                             Text(
@@ -1606,24 +1608,26 @@ private fun LibrarySearchField(
     modifier: Modifier = Modifier
 ) {
     val contentColor = MaterialTheme.colorScheme.onSurface
+    val shape = RoundedCornerShape(24.dp)
     Row(
         modifier = modifier
-            .height(40.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .height(48.dp)
+            .clip(shape)
             .background(contentColor.copy(alpha = 0.10f))
-            .padding(horizontal = 12.dp),
+            .border(0.5.dp, contentColor.copy(alpha = 0.12f), shape)
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             Icons.Filled.Search,
             contentDescription = "Search",
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(22.dp),
             tint = contentColor.copy(alpha = 0.6f)
         )
         Box(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 8.dp),
+                .padding(start = 10.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             if (query.isEmpty()) {
