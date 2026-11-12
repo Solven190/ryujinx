@@ -7,9 +7,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -297,6 +296,8 @@ class HomeViews {
         ) {
             val margin = with(LocalDensity.current) { 8.dp.roundToPx() }
             val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.8f).dp
+            val screenHeightPx = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
+            val originY = if (anchor.center.y < screenHeightPx / 2) 0f else 1f
             val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
 
             Popup(
@@ -308,13 +309,10 @@ class HomeViews {
             ) {
                 AnimatedVisibility(
                     visibleState = visibleState,
-                    enter = fadeIn(tween(120)) + scaleIn(
-                        initialScale = 0.85f,
-                        transformOrigin = TransformOrigin(0.5f, 0f),
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioLowBouncy,
-                            stiffness = Spring.StiffnessMedium
-                        )
+                    enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + scaleIn(
+                        initialScale = 0.9f,
+                        transformOrigin = TransformOrigin(0.5f, originY),
+                        animationSpec = tween(260, easing = FastOutSlowInEasing)
                     ),
                     exit = fadeOut()
                 ) {
@@ -1406,7 +1404,7 @@ class HomeViews {
         ) {
             remember { selectedModel }
             val color =
-                if (selectedModel.value == gameModel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+                if (selectedModel.value == gameModel) MaterialTheme.colorScheme.primary else elevatedSurfaceColor()
 
             val decoder = Base64.getDecoder()
             var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
@@ -1506,7 +1504,7 @@ class HomeViews {
         ) {
             remember { selectedModel }
             val color =
-                if (selectedModel.value == gameModel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+                if (selectedModel.value == gameModel) MaterialTheme.colorScheme.primary else elevatedSurfaceColor()
 
             val decoder = Base64.getDecoder()
             var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
@@ -1753,31 +1751,25 @@ private class GameMenuPositionProvider(
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize
     ): IntOffset {
-        val maxY = windowSize.height - popupContentSize.height - margin
-        val fitsRight = anchor.right + margin + popupContentSize.width <= windowSize.width - margin
-        val fitsLeft = anchor.left - margin - popupContentSize.width >= margin
+        val width = popupContentSize.width
+        val height = popupContentSize.height
 
-        return when {
-            fitsRight -> IntOffset(
-                anchor.right + margin,
-                anchor.top.coerceIn(margin, maxY.coerceAtLeast(margin))
-            )
-            fitsLeft -> IntOffset(
-                anchor.left - margin - popupContentSize.width,
-                anchor.top.coerceIn(margin, maxY.coerceAtLeast(margin))
-            )
-            else -> {
-                val maxX = windowSize.width - popupContentSize.width - margin
-                val x = (anchor.center.x - popupContentSize.width / 2)
-                    .coerceIn(margin, maxX.coerceAtLeast(margin))
-                val below = anchor.bottom + margin
-                val y = if (below + popupContentSize.height + margin <= windowSize.height) {
-                    below
-                } else {
-                    (anchor.top - margin - popupContentSize.height).coerceAtLeast(margin)
-                }
-                IntOffset(x, y)
-            }
+        val x = (anchor.center.x - width / 2)
+            .coerceIn(margin, (windowSize.width - width - margin).coerceAtLeast(margin))
+
+        val below = anchor.bottom + margin
+        val above = anchor.top - margin - height
+        val fitsBelow = below + height + margin <= windowSize.height
+        val fitsAbove = above >= margin
+        val preferBelow = anchor.center.y < windowSize.height / 2
+
+        val y = when {
+            preferBelow && fitsBelow -> below
+            !preferBelow && fitsAbove -> above
+            fitsBelow -> below
+            fitsAbove -> above
+            else -> below.coerceIn(margin, (windowSize.height - height - margin).coerceAtLeast(margin))
         }
+        return IntOffset(x, y)
     }
 }
