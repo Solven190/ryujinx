@@ -1,10 +1,15 @@
 package org.kenjinx.android.views
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.DocumentsContract
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -44,9 +49,11 @@ import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Nfc
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.VideogameAsset
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -67,6 +74,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -82,6 +90,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -1920,6 +1929,34 @@ class SettingViews {
             mainViewModel: MainViewModel,
             searchQuery: String
         ) {
+            val activity = LocalContext.current as? Activity
+            val showAmiiboSlotDialog = remember { mutableStateOf(false) }
+            val pendingSlot = remember { mutableStateOf(1) }
+
+            val pickAmiiboLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocument()
+            ) { uri: Uri? ->
+                if (uri != null && activity != null) {
+                    try {
+                        activity.contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (_: Exception) {}
+                    val name = DocumentFile.fromSingleUri(activity, uri)?.name ?: "amiibo.bin"
+                    val qs = QuickSettings(activity)
+                    when (pendingSlot.value) {
+                        1 -> { qs.amiibo1Uri = uri.toString(); qs.amiibo1Name = name }
+                        2 -> { qs.amiibo2Uri = uri.toString(); qs.amiibo2Name = name }
+                        3 -> { qs.amiibo3Uri = uri.toString(); qs.amiibo3Name = name }
+                        4 -> { qs.amiibo4Uri = uri.toString(); qs.amiibo4Name = name }
+                        5 -> { qs.amiibo5Uri = uri.toString(); qs.amiibo5Name = name }
+                    }
+                    qs.save()
+                    Toast.makeText(activity, "Amiibo saved to slot ${pendingSlot.value}", Toast.LENGTH_SHORT).show()
+                }
+            }
+
             SettingsCard(title = "System & Data", searchQuery = searchQuery) {
                 SettingActionItem(
                     title = "System Firmware",
@@ -1946,6 +1983,16 @@ class SettingViews {
                 ) {
                     FilledTonalIconButton(onClick = { showFirwmareDialog.value = true }) {
                         Icon(Icons.Default.ArrowDownward, contentDescription = "Install")
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingActionItem(
+                    title = "Import Amiibo",
+                    description = "Import an Amiibo .bin file to a virtual slot.",
+                    searchQuery = searchQuery
+                ) {
+                    FilledTonalIconButton(onClick = { showAmiiboSlotDialog.value = true }) {
+                        Icon(Icons.Outlined.Nfc, contentDescription = "Import Amiibo")
                     }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -2027,6 +2074,50 @@ class SettingViews {
                         Icon(Icons.Default.Upload, contentDescription = "Import")
                     }
                 }
+            }
+
+            if (showAmiiboSlotDialog.value) {
+                AlertDialog(
+                    onDismissRequest = { showAmiiboSlotDialog.value = false },
+                    title = { Text("Import Amiibo") },
+                    text = {
+                        Column {
+                            Text("Choose a slot to save this Amiibo:", modifier = Modifier.padding(bottom = 8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = {
+                                    pendingSlot.value = 1
+                                    pickAmiiboLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+                                    showAmiiboSlotDialog.value = false
+                                }) { Text("Slot 1") }
+                                TextButton(onClick = {
+                                    pendingSlot.value = 2
+                                    pickAmiiboLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+                                    showAmiiboSlotDialog.value = false
+                                }) { Text("Slot 2") }
+                                TextButton(onClick = {
+                                    pendingSlot.value = 3
+                                    pickAmiiboLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+                                    showAmiiboSlotDialog.value = false
+                                }) { Text("Slot 3") }
+                            }
+                            Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = {
+                                    pendingSlot.value = 4
+                                    pickAmiiboLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+                                    showAmiiboSlotDialog.value = false
+                                }) { Text("Slot 4") }
+                                TextButton(onClick = {
+                                    pendingSlot.value = 5
+                                    pickAmiiboLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+                                    showAmiiboSlotDialog.value = false
+                                }) { Text("Slot 5") }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showAmiiboSlotDialog.value = false }) { Text("Close") }
+                    }
+                )
             }
         }
 
