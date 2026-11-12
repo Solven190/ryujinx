@@ -7,6 +7,15 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -51,16 +60,10 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FabPosition
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -71,6 +74,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,8 +88,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.PathBuilder
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -182,7 +188,6 @@ class HomeViews {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding()
                     .padding(bottom = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -292,6 +297,7 @@ class HomeViews {
         ) {
             val margin = with(LocalDensity.current) { 8.dp.roundToPx() }
             val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.8f).dp
+            val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
 
             Popup(
                 popupPositionProvider = remember(anchor, margin) {
@@ -300,32 +306,45 @@ class HomeViews {
                 onDismissRequest = onDismissRequest,
                 properties = PopupProperties(focusable = true)
             ) {
-                Surface(
-                    modifier = Modifier
-                        .width(250.dp)
-                        .heightIn(max = maxHeight),
-                    shape = RoundedCornerShape(20.dp),
-                    color = elevatedSurfaceColor().copy(alpha = 0.96f),
-                    shadowElevation = 16.dp
+                AnimatedVisibility(
+                    visibleState = visibleState,
+                    enter = fadeIn(tween(120)) + scaleIn(
+                        initialScale = 0.85f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    ),
+                    exit = fadeOut()
                 ) {
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                        groups.forEachIndexed { groupIndex, group ->
-                            if (groupIndex > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(8.dp)
-                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                                )
-                            }
-                            group.forEachIndexed { actionIndex, action ->
-                                if (actionIndex > 0) {
-                                    HorizontalDivider(
-                                        thickness = 0.5.dp,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    Surface(
+                        modifier = Modifier
+                            .width(250.dp)
+                            .heightIn(max = maxHeight),
+                        shape = RoundedCornerShape(20.dp),
+                        color = elevatedSurfaceColor().copy(alpha = 0.96f),
+                        shadowElevation = 16.dp
+                    ) {
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                            groups.forEachIndexed { groupIndex, group ->
+                                if (groupIndex > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(8.dp)
+                                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                                     )
                                 }
-                                GameMenuRow(action)
+                                group.forEachIndexed { actionIndex, action ->
+                                    if (actionIndex > 0) {
+                                        HorizontalDivider(
+                                            thickness = 0.5.dp,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                                        )
+                                    }
+                                    GameMenuRow(action)
+                                }
                             }
                         }
                     }
@@ -383,12 +402,21 @@ class HomeViews {
             val selectedModel = remember { mutableStateOf(viewModel.mainViewModel?.selected) }
             val query = remember { mutableStateOf("") }
             var refreshUser by remember { mutableStateOf(true) }
-            var isFabVisible by remember { mutableStateOf(true) }
+            var areBarsVisible by remember { mutableStateOf(true) }
             val isNavigating = remember { mutableStateOf(false) }
             val menuAnchor = remember { mutableStateOf<IntRect?>(null) }
             val gridState = rememberLazyGridState()
             val listState = rememberLazyListState()
             val coroutineScope = rememberCoroutineScope()
+            val listFitsScreen by remember {
+                derivedStateOf {
+                    !gridState.canScrollBackward && !gridState.canScrollForward &&
+                        !listState.canScrollBackward && !listState.canScrollForward
+                }
+            }
+            LaunchedEffect(listFitsScreen) {
+                if (listFitsScreen) areBarsVisible = true
+            }
 
             // Amiibo slot picker state
             val showAmiiboSlotDialog = remember { mutableStateOf(false) }
@@ -609,8 +637,8 @@ class HomeViews {
             val nestedScrollConnection = remember {
                 object : NestedScrollConnection {
                     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                        if (available.y < -1) isFabVisible = false
-                        if (available.y > 1) isFabVisible = true
+                        if (available.y < -1) areBarsVisible = false
+                        if (available.y > 1) areBarsVisible = true
                         return Offset.Zero
                     }
                 }
@@ -653,54 +681,62 @@ class HomeViews {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .statusBarsPadding()
-                                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)
                         ) {
-                            Text(
-                                text = "Library",
-                                style = MaterialTheme.typography.displaySmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            LibrarySearchField(
-                                query = query.value,
-                                onQueryChange = { query.value = it },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    },
-                    bottomBar = {
-                        HomeBottomBar(
-                            userPicture = userPicture,
-                            onSettingsClick = { navigateTo("settings") },
-                            onLibraryClick = {
-                                query.value = ""
-                                coroutineScope.launch {
-                                    val isGridLayout = viewModel.activity?.let { QuickSettings(it).isGrid } == true
-                                    if (isGridLayout) {
-                                        gridState.animateScrollToItem(0)
-                                    } else {
-                                        listState.animateScrollToItem(0)
-                                    }
-                                }
-                            },
-                            onUserClick = { navigateTo("user") }
-                        )
-                    },
-                    floatingActionButton = {
-                        AnimatedVisibility(visible = isFabVisible) {
-                            // Import Amiibo
-                            FloatingActionButton(
-                                onClick = { showAmiiboSlotDialog.value = true },
-                                shape = MaterialTheme.shapes.small
+                            AnimatedVisibility(
+                                visible = areBarsVisible,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut()
                             ) {
-                                Icon(
-                                    org.kenjinx.android.Icons.folderOpen(MaterialTheme.colorScheme.onSurface),
-                                    contentDescription = "Import Amiibo"
-                                )
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)
+                                ) {
+                                    Text(
+                                        text = "Library",
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LibrarySearchField(
+                                        query = query.value,
+                                        onQueryChange = { query.value = it },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
                             }
                         }
                     },
-                    floatingActionButtonPosition = FabPosition.End
+                    bottomBar = {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .navigationBarsPadding()
+                        ) {
+                            AnimatedVisibility(
+                                visible = areBarsVisible,
+                                enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                                exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+                            ) {
+                                HomeBottomBar(
+                                    userPicture = userPicture,
+                                    onSettingsClick = { navigateTo("settings") },
+                                    onLibraryClick = {
+                                        query.value = ""
+                                        coroutineScope.launch {
+                                            val isGridLayout = viewModel.activity?.let { QuickSettings(it).isGrid } == true
+                                            if (isGridLayout) {
+                                                gridState.animateScrollToItem(0)
+                                            } else {
+                                                listState.animateScrollToItem(0)
+                                            }
+                                        }
+                                    },
+                                    onUserClick = { navigateTo("user") }
+                                )
+                            }
+                        }
+                    }
                 ) { contentPadding ->
                     Column(modifier = Modifier.padding(contentPadding)) {
                         val list = remember { viewModel.gameList }
@@ -712,40 +748,51 @@ class HomeViews {
                                 viewModel.requestReload()
                                 viewModel.ensureReloadIfNecessary()
                             },
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .nestedScroll(nestedScrollConnection)
                         ) {
                             viewModel.filter(query.value)
 
                             if (!isPreview) {
                                 val settings = QuickSettings(viewModel.activity!!)
-                                if (isLoading.value) {
-                                    Box(modifier = Modifier.fillMaxSize()) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier
-                                                .width(64.dp)
-                                                .align(Alignment.Center),
-                                            color = MaterialTheme.colorScheme.secondary,
-                                            trackColor = MaterialTheme.colorScheme.surfaceVariant
-                                        )
+                                if (settings.isGrid) {
+                                    val size = GridImageSize / Resources.getSystem().displayMetrics.density
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Adaptive(minSize = (size + 4).dp),
+                                        state = gridState,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(4.dp),
+                                        horizontalArrangement = Arrangement.SpaceEvenly
+                                    ) {
+                                        items(list) {
+                                            it.titleName?.apply {
+                                                if (this.isNotEmpty() && (query.value.trim()
+                                                        .isEmpty() || this.lowercase(Locale.getDefault())
+                                                        .contains(query.value))) {
+                                                    GridGameItem(
+                                                        it,
+                                                        viewModel,
+                                                        showAppActions,
+                                                        showLoading,
+                                                        selectedModel,
+                                                        showError,
+                                                        menuAnchor
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 } else {
-                                    if (settings.isGrid) {
-                                        val size = GridImageSize / Resources.getSystem().displayMetrics.density
-                                        LazyVerticalGrid(
-                                            columns = GridCells.Adaptive(minSize = (size + 4).dp),
-                                            state = gridState,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(4.dp)
-                                                .nestedScroll(nestedScrollConnection),
-                                            horizontalArrangement = Arrangement.SpaceEvenly
-                                        ) {
-                                            items(list) {
-                                                it.titleName?.apply {
-                                                    if (this.isNotEmpty() && (query.value.trim()
-                                                            .isEmpty() || this.lowercase(Locale.getDefault())
-                                                            .contains(query.value))) {
-                                                        GridGameItem(
+                                    LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                                        items(list) {
+                                            it.titleName?.apply {
+                                                if (this.isNotEmpty() && (query.value.trim()
+                                                        .isEmpty() || this.lowercase(Locale.getDefault())
+                                                        .contains(query.value))) {
+                                                    Box(modifier = Modifier.animateItem()) {
+                                                        ListGameItem(
                                                             it,
                                                             viewModel,
                                                             showAppActions,
@@ -754,28 +801,6 @@ class HomeViews {
                                                             showError,
                                                             menuAnchor
                                                         )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        LazyColumn(Modifier.fillMaxSize(), state = listState) {
-                                            items(list) {
-                                                it.titleName?.apply {
-                                                    if (this.isNotEmpty() && (query.value.trim()
-                                                            .isEmpty() || this.lowercase(Locale.getDefault())
-                                                            .contains(query.value))) {
-                                                        Box(modifier = Modifier.animateItem()) {
-                                                            ListGameItem(
-                                                                it,
-                                                                viewModel,
-                                                                showAppActions,
-                                                                showLoading,
-                                                                selectedModel,
-                                                                showError,
-                                                                menuAnchor
-                                                            )
-                                                        }
                                                     }
                                                 }
                                             }
@@ -939,7 +964,7 @@ class HomeViews {
                                     ),
                                     GameMenuAction(
                                         label = "Manage DLC",
-                                        icon = Icons.Filled.ShoppingCart,
+                                        icon = DlcIcon,
                                         onClick = {
                                             dismissAppActions()
                                             openDlcDialog.value = true
@@ -982,7 +1007,7 @@ class HomeViews {
                                     ),
                                     GameMenuAction(
                                         label = "Manage Saves",
-                                        icon = Icons.Filled.Share,
+                                        icon = SaveIcon,
                                         onClick = {
                                             dismissAppActions()
                                             openSavesDialog.value = true
@@ -1660,6 +1685,32 @@ private fun PathBuilder.roundedSquare(x: Float, y: Float, size: Float, radius: F
     verticalLineTo(y + radius)
     quadTo(x, y, x + radius, y)
     close()
+}
+
+private fun materialVector(name: String, pathData: String): ImageVector =
+    ImageVector.Builder(
+        name = name,
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).addPath(
+        pathData = PathParser().parsePathString(pathData).toNodes(),
+        fill = SolidColor(Color.Black)
+    ).build()
+
+private val SaveIcon: ImageVector by lazy {
+    materialVector(
+        "Save",
+        "M17,3H5C3.89,3 3,3.9 3,5v14c0,1.1 0.89,2 2,2h14c1.1,0 2,-0.9 2,-2V7l-4,-4zM12,19c-1.66,0 -3,-1.34 -3,-3s1.34,-3 3,-3 3,1.34 3,3 -1.34,3 -3,3zM15,9H5V5h10v4z"
+    )
+}
+
+private val DlcIcon: ImageVector by lazy {
+    materialVector(
+        "Extension",
+        "M20.5,11H19V7c0,-1.1 -0.9,-2 -2,-2h-4V3.5C13,2.12 11.88,1 10.5,1S8,2.12 8,3.5V5H4c-1.1,0 -1.99,0.9 -1.99,2v3.8H3.5c1.49,0 2.7,1.21 2.7,2.7s-1.21,2.7 -2.7,2.7H2V20c0,1.1 0.9,2 2,2h3.8v-1.5c0,-1.49 1.21,-2.7 2.7,-2.7 1.49,0 2.7,1.21 2.7,2.7V22H17c1.1,0 2,-0.9 2,-2v-4h1.5c1.38,0 2.5,-1.12 2.5,-2.5S21.88,11 20.5,11z"
+    )
 }
 
 private val LibraryGridIcon: ImageVector by lazy {
