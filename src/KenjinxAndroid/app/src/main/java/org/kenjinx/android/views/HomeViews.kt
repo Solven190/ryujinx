@@ -38,18 +38,18 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
@@ -63,7 +63,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -83,7 +82,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.PathBuilder
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -176,68 +178,70 @@ class HomeViews {
                 userPicture?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
             }
 
-            Surface(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                shape = RoundedCornerShape(32.dp),
-                color = elevatedSurfaceColor().copy(alpha = 0.94f),
-                shadowElevation = 12.dp,
-                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                    .padding(bottom = 8.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    color = elevatedSurfaceColor().copy(alpha = 0.94f),
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                 ) {
-                    HomeBottomBarItem(
-                        label = "Settings",
-                        selected = false,
-                        onClick = onSettingsClick
-                    ) { tint ->
-                        Icon(
-                            Icons.Filled.Settings,
-                            contentDescription = "Settings",
-                            modifier = Modifier.size(26.dp),
-                            tint = tint
-                        )
-                    }
-                    HomeBottomBarItem(
-                        label = "Library",
-                        selected = true,
-                        onClick = onLibraryClick
-                    ) { tint ->
-                        Icon(
-                            Icons.Filled.Home,
-                            contentDescription = "Library",
-                            modifier = Modifier.size(26.dp),
-                            tint = tint
-                        )
-                    }
-                    HomeBottomBarItem(
-                        label = "User",
-                        selected = false,
-                        onClick = onUserClick
-                    ) { tint ->
-                        if (avatar != null) {
-                            Image(
-                                bitmap = avatar,
-                                contentDescription = "user image",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .clip(CircleShape)
-                            )
-                        } else {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HomeBottomBarItem(
+                            label = "Settings",
+                            selected = false,
+                            onClick = onSettingsClick
+                        ) { tint ->
                             Icon(
-                                Icons.Filled.Person,
-                                contentDescription = "User",
-                                modifier = Modifier.size(26.dp),
+                                Icons.Outlined.Settings,
+                                contentDescription = "Settings",
+                                modifier = Modifier.size(24.dp),
                                 tint = tint
                             )
+                        }
+                        HomeBottomBarItem(
+                            label = "Library",
+                            selected = true,
+                            onClick = onLibraryClick
+                        ) { tint ->
+                            Icon(
+                                LibraryGridIcon,
+                                contentDescription = "Library",
+                                modifier = Modifier.size(24.dp),
+                                tint = tint
+                            )
+                        }
+                        HomeBottomBarItem(
+                            label = "User",
+                            selected = false,
+                            onClick = onUserClick
+                        ) { tint ->
+                            if (avatar != null) {
+                                Image(
+                                    bitmap = avatar,
+                                    contentDescription = "user image",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Outlined.Person,
+                                    contentDescription = "User",
+                                    modifier = Modifier.size(24.dp),
+                                    tint = tint
+                                )
+                            }
                         }
                     }
                 }
@@ -259,13 +263,13 @@ class HomeViews {
 
             Column(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(26.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .background(
                         if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
                         else Color.Transparent
                     )
                     .clickable(onClick = onClick)
-                    .padding(horizontal = 22.dp, vertical = 8.dp),
+                    .padding(horizontal = 18.dp, vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 icon(contentColor)
@@ -647,7 +651,6 @@ class HomeViews {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface)
                                 .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)
                         ) {
                             Text(
@@ -655,27 +658,11 @@ class HomeViews {
                                 style = MaterialTheme.typography.displaySmall,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(Modifier.height(12.dp))
-                            OutlinedTextField(
-                                value = query.value,
-                                onValueChange = { query.value = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp),
-                                placeholder = {
-                                    Text("Search", modifier = Modifier.padding(bottom = 4.dp))
-                                },
-                                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(16.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                    errorContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent,
-                                )
+                            Spacer(Modifier.height(8.dp))
+                            LibrarySearchField(
+                                query = query.value,
+                                onQueryChange = { query.value = it },
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     },
@@ -1611,6 +1598,80 @@ internal data class GameMenuAction(
     val highlighted: Boolean = false,
     val destructive: Boolean = false
 )
+
+@Composable
+private fun LibrarySearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    Row(
+        modifier = modifier
+            .height(40.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(contentColor.copy(alpha = 0.10f))
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Filled.Search,
+            contentDescription = "Search",
+            modifier = Modifier.size(20.dp),
+            tint = contentColor.copy(alpha = 0.6f)
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            if (query.isEmpty()) {
+                Text(
+                    text = "Search",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = contentColor.copy(alpha = 0.5f)
+                )
+            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = contentColor),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+private fun PathBuilder.roundedSquare(x: Float, y: Float, size: Float, radius: Float) {
+    moveTo(x + radius, y)
+    horizontalLineTo(x + size - radius)
+    quadTo(x + size, y, x + size, y + radius)
+    verticalLineTo(y + size - radius)
+    quadTo(x + size, y + size, x + size - radius, y + size)
+    horizontalLineTo(x + radius)
+    quadTo(x, y + size, x, y + size - radius)
+    verticalLineTo(y + radius)
+    quadTo(x, y, x + radius, y)
+    close()
+}
+
+private val LibraryGridIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "LibraryGrid",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).path(fill = SolidColor(Color.Black)) {
+        roundedSquare(3f, 3f, 8f, 2.5f)
+        roundedSquare(13f, 3f, 8f, 2.5f)
+        roundedSquare(3f, 13f, 8f, 2.5f)
+        roundedSquare(13f, 13f, 8f, 2.5f)
+    }.build()
+}
 
 @Composable
 private fun elevatedSurfaceColor(): Color =
