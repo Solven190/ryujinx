@@ -83,6 +83,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -179,17 +180,16 @@ class HomeViews {
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                tonalElevation = 3.dp,
-                shadowElevation = 6.dp,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                shape = RoundedCornerShape(32.dp),
+                color = elevatedSurfaceColor().copy(alpha = 0.94f),
+                shadowElevation = 12.dp,
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -201,7 +201,7 @@ class HomeViews {
                         Icon(
                             Icons.Filled.Settings,
                             contentDescription = "Settings",
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(26.dp),
                             tint = tint
                         )
                     }
@@ -213,7 +213,7 @@ class HomeViews {
                         Icon(
                             Icons.Filled.Home,
                             contentDescription = "Library",
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(26.dp),
                             tint = tint
                         )
                     }
@@ -228,14 +228,14 @@ class HomeViews {
                                 contentDescription = "user image",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .size(24.dp)
+                                    .size(26.dp)
                                     .clip(CircleShape)
                             )
                         } else {
                             Icon(
                                 Icons.Filled.Person,
                                 contentDescription = "User",
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(26.dp),
                                 tint = tint
                             )
                         }
@@ -254,24 +254,25 @@ class HomeViews {
             val contentColor = if (selected) {
                 MaterialTheme.colorScheme.primary
             } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             }
 
             Column(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(26.dp))
                     .background(
-                        if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                        if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
                         else Color.Transparent
                     )
                     .clickable(onClick = onClick)
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                    .padding(horizontal = 22.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 icon(contentColor)
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Medium,
                     color = contentColor,
                     modifier = Modifier.padding(top = 2.dp)
                 )
@@ -296,26 +297,31 @@ class HomeViews {
             ) {
                 Surface(
                     modifier = Modifier
-                        .width(240.dp)
+                        .width(250.dp)
                         .heightIn(max = maxHeight),
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    tonalElevation = 3.dp,
-                    shadowElevation = 8.dp
+                    shape = RoundedCornerShape(20.dp),
+                    color = elevatedSurfaceColor().copy(alpha = 0.96f),
+                    shadowElevation = 16.dp
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .verticalScroll(rememberScrollState())
-                            .padding(vertical = 8.dp)
-                    ) {
-                        groups.forEachIndexed { index, group ->
-                            if (index > 0) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        groups.forEachIndexed { groupIndex, group ->
+                            if (groupIndex > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                                 )
                             }
-                            group.forEach { action -> GameMenuRow(action) }
+                            group.forEachIndexed { actionIndex, action ->
+                                if (actionIndex > 0) {
+                                    HorizontalDivider(
+                                        thickness = 0.5.dp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                                    )
+                                }
+                                GameMenuRow(action)
+                            }
                         }
                     }
                 }
@@ -330,42 +336,27 @@ class HomeViews {
                 action.destructive -> colors.error
                 else -> colors.onSurface
             }
-            val badgeColor = when {
-                action.highlighted -> colors.primary.copy(alpha = 0.16f)
-                action.destructive -> colors.error.copy(alpha = 0.12f)
-                else -> colors.surfaceVariant
-            }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-                    .clip(RoundedCornerShape(16.dp))
                     .clickable(onClick = action.onClick)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(badgeColor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        action.icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                        tint = contentColor
-                    )
-                }
                 Text(
                     text = action.label,
                     style = MaterialTheme.typography.bodyLarge,
                     color = contentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 16.dp)
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    action.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = contentColor
                 )
             }
         }
@@ -657,13 +648,12 @@ class HomeViews {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.surface)
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)
                         ) {
                             Text(
                                 text = "Library",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(start = 4.dp)
+                                style = MaterialTheme.typography.displaySmall,
+                                fontWeight = FontWeight.Bold
                             )
                             Spacer(Modifier.height(12.dp))
                             OutlinedTextField(
@@ -673,18 +663,18 @@ class HomeViews {
                                     .fillMaxWidth()
                                     .height(56.dp),
                                 placeholder = {
-                                    Text("Search games", modifier = Modifier.padding(bottom = 4.dp))
+                                    Text("Search", modifier = Modifier.padding(bottom = 4.dp))
                                 },
                                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
                                 singleLine = true,
-                                shape = RoundedCornerShape(28.dp),
+                                shape = RoundedCornerShape(16.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    disabledContainerColor = Color.Transparent,
-                                    errorContainerColor = Color.Transparent,
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                    errorContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
                                 )
                             )
                         }
@@ -1621,6 +1611,10 @@ internal data class GameMenuAction(
     val highlighted: Boolean = false,
     val destructive: Boolean = false
 )
+
+@Composable
+private fun elevatedSurfaceColor(): Color =
+    lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.onSurface, 0.08f)
 
 private fun LayoutCoordinates.toWindowIntRect(): IntRect {
     val bounds = boundsInWindow()
