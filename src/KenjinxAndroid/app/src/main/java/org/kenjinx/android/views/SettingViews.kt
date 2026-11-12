@@ -106,6 +106,12 @@ import kotlin.concurrent.thread
 import kotlin.math.roundToInt
 import org.kenjinx.android.MainActivity
 import org.kenjinx.android.providers.DocumentProvider
+import org.kenjinx.android.ui.theme.AppThemeEnum
+import org.kenjinx.android.ui.theme.ThemeMode
+import org.kenjinx.android.ui.theme.getSavedTheme
+import org.kenjinx.android.ui.theme.getSavedThemeMode
+import org.kenjinx.android.ui.theme.saveThemeMode
+import org.kenjinx.android.ui.theme.saveThemePreference
 import org.kenjinx.android.viewmodels.DataImportState
 import org.kenjinx.android.viewmodels.DataResetState
 import org.kenjinx.android.viewmodels.FirmwareInstallState
@@ -1567,6 +1573,32 @@ class SettingViews {
             mainViewModel: MainViewModel,
             searchQuery: String
         ) {
+            SettingsCard(title = "Appearance", searchQuery = searchQuery) {
+                SettingSelectionItem(
+                    title = "Theme Mode",
+                    description = "Select Light, Dark, or System default.",
+                    selectedValue = getSavedThemeMode(mainViewModel.activity),
+                    options = ThemeMode.entries.toList(),
+                    getDisplayText = { it.displayName },
+                    onOptionSelected = { mode ->
+                        saveThemeMode(mainViewModel.activity, mode)
+                    },
+                    searchQuery = searchQuery
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingSelectionItem(
+                    title = "App Theme",
+                    description = "Choose a custom color palette.",
+                    selectedValue = getSavedTheme(mainViewModel.activity),
+                    options = AppThemeEnum.entries.toList(),
+                    getDisplayText = { it.displayName },
+                    onOptionSelected = { theme ->
+                        saveThemePreference(mainViewModel.activity, theme)
+                    },
+                    searchQuery = searchQuery
+                )
+            }
+
             SettingsCard(title = "Display", searchQuery = searchQuery) {
                 SettingSelectionItem(
                     title = "Screen Orientation",
