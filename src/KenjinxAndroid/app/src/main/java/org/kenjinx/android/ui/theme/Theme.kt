@@ -59,11 +59,11 @@ fun saveThemeMode(context: Context, mode: ThemeMode) {
 
 fun getSavedTheme(context: Context): AppThemeEnum {
     val name = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        .getString(KEY_THEME, AppThemeEnum.MINT_FOREST.name) ?: AppThemeEnum.MINT_FOREST.name
+        .getString(KEY_THEME, AppThemeEnum.GOLD.name) ?: AppThemeEnum.GOLD.name
     return try {
         AppThemeEnum.valueOf(name)
     } catch (_: Exception) {
-        AppThemeEnum.MINT_FOREST
+        AppThemeEnum.GOLD
     }
 }
 
@@ -79,181 +79,181 @@ fun getSavedThemeMode(context: Context): ThemeMode {
 
 private fun buildLightColorScheme(theme: Any): androidx.compose.material3.ColorScheme {
     return when (theme) {
-        is MintForest -> lightColorScheme(
-            primary = MintForest.LightPrimary, onPrimary = MintForest.LightOnPrimary,
-            primaryContainer = MintForest.LightPrimaryContainer, onPrimaryContainer = MintForest.LightOnPrimaryContainer,
-            secondary = MintForest.LightSecondary, onSecondary = MintForest.LightOnSecondary,
-            secondaryContainer = MintForest.LightSecondaryContainer, onSecondaryContainer = MintForest.LightOnSecondaryContainer,
-            tertiary = MintForest.LightTertiary, onTertiary = MintForest.LightOnTertiary,
-            tertiaryContainer = MintForest.LightTertiaryContainer, onTertiaryContainer = MintForest.LightOnTertiaryContainer,
-            error = MintForest.LightError, onError = MintForest.LightOnError,
-            errorContainer = MintForest.LightErrorContainer, onErrorContainer = MintForest.LightOnErrorContainer,
-            background = MintForest.LightSurface, onBackground = MintForest.LightOnSurface,
-            surface = Color.White, onSurface = MintForest.LightOnSurface,
-            surfaceVariant = MintForest.LightSurfaceVariant, onSurfaceVariant = MintForest.LightOnSurfaceVariant,
-            outline = MintForest.LightOutline, outlineVariant = MintForest.LightOutlineVariant,
-            inverseSurface = MintForest.LightInverseSurface, inverseOnSurface = MintForest.LightInverseOnSurface,
-            inversePrimary = MintForest.LightInversePrimary, surfaceTint = MintForest.LightSurfaceTint
+        is Gold -> lightColorScheme(
+            primary = Gold.LightPrimary, onPrimary = Gold.LightOnPrimary,
+            primaryContainer = Gold.LightPrimaryContainer, onPrimaryContainer = Gold.LightOnPrimaryContainer,
+            secondary = Gold.LightSecondary, onSecondary = Gold.LightOnSecondary,
+            secondaryContainer = Gold.LightSecondaryContainer, onSecondaryContainer = Gold.LightOnSecondaryContainer,
+            tertiary = Gold.LightTertiary, onTertiary = Gold.LightOnTertiary,
+            tertiaryContainer = Gold.LightTertiaryContainer, onTertiaryContainer = Gold.LightOnTertiaryContainer,
+            error = Gold.LightError, onError = Gold.LightOnError,
+            errorContainer = Gold.LightErrorContainer, onErrorContainer = Gold.LightOnErrorContainer,
+            background = Gold.LightSurface, onBackground = Gold.LightOnSurface,
+            surface = Gold.LightSurface, onSurface = Gold.LightOnSurface,
+            surfaceVariant = Gold.LightSurfaceVariant, onSurfaceVariant = Gold.LightOnSurfaceVariant,
+            outline = Gold.LightOutline, outlineVariant = Gold.LightOutlineVariant,
+            inverseSurface = Gold.LightInverseSurface, inverseOnSurface = Gold.LightInverseOnSurface,
+            inversePrimary = Gold.LightInversePrimary, surfaceTint = Gold.LightSurfaceTint
         )
-        is OceanBlue -> lightColorScheme(
-            primary = OceanBlue.LightPrimary, onPrimary = OceanBlue.LightOnPrimary,
-            primaryContainer = OceanBlue.LightPrimaryContainer, onPrimaryContainer = OceanBlue.LightOnPrimaryContainer,
-            secondary = OceanBlue.LightSecondary, onSecondary = OceanBlue.LightOnSecondary,
-            secondaryContainer = OceanBlue.LightSecondaryContainer, onSecondaryContainer = OceanBlue.LightOnSecondaryContainer,
-            tertiary = OceanBlue.LightTertiary, onTertiary = OceanBlue.LightOnTertiary,
-            tertiaryContainer = OceanBlue.LightTertiaryContainer, onTertiaryContainer = OceanBlue.LightOnTertiaryContainer,
-            error = OceanBlue.LightError, onError = OceanBlue.LightOnError,
-            errorContainer = OceanBlue.LightErrorContainer, onErrorContainer = OceanBlue.LightOnErrorContainer,
-            background = OceanBlue.LightSurface, onBackground = OceanBlue.LightOnSurface,
-            surface = Color.White, onSurface = OceanBlue.LightOnSurface,
-            surfaceVariant = OceanBlue.LightSurfaceVariant, onSurfaceVariant = OceanBlue.LightOnSurfaceVariant,
-            outline = OceanBlue.LightOutline, outlineVariant = OceanBlue.LightOutlineVariant,
-            inverseSurface = OceanBlue.LightInverseSurface, inverseOnSurface = OceanBlue.LightInverseOnSurface,
-            inversePrimary = OceanBlue.LightInversePrimary, surfaceTint = OceanBlue.LightSurfaceTint
+        is Blue -> lightColorScheme(
+            primary = Blue.LightPrimary, onPrimary = Blue.LightOnPrimary,
+            primaryContainer = Blue.LightPrimaryContainer, onPrimaryContainer = Blue.LightOnPrimaryContainer,
+            secondary = Blue.LightSecondary, onSecondary = Blue.LightOnSecondary,
+            secondaryContainer = Blue.LightSecondaryContainer, onSecondaryContainer = Blue.LightOnSecondaryContainer,
+            tertiary = Blue.LightTertiary, onTertiary = Blue.LightOnTertiary,
+            tertiaryContainer = Blue.LightTertiaryContainer, onTertiaryContainer = Blue.LightOnTertiaryContainer,
+            error = Blue.LightError, onError = Blue.LightOnError,
+            errorContainer = Blue.LightErrorContainer, onErrorContainer = Blue.LightOnErrorContainer,
+            background = Blue.LightSurface, onBackground = Blue.LightOnSurface,
+            surface = Blue.LightSurface, onSurface = Blue.LightOnSurface,
+            surfaceVariant = Blue.LightSurfaceVariant, onSurfaceVariant = Blue.LightOnSurfaceVariant,
+            outline = Blue.LightOutline, outlineVariant = Blue.LightOutlineVariant,
+            inverseSurface = Blue.LightInverseSurface, inverseOnSurface = Blue.LightInverseOnSurface,
+            inversePrimary = Blue.LightInversePrimary, surfaceTint = Blue.LightSurfaceTint
         )
-        is VelvetViolet -> lightColorScheme(
-            primary = VelvetViolet.LightPrimary, onPrimary = VelvetViolet.LightOnPrimary,
-            primaryContainer = VelvetViolet.LightPrimaryContainer, onPrimaryContainer = VelvetViolet.LightOnPrimaryContainer,
-            secondary = VelvetViolet.LightSecondary, onSecondary = VelvetViolet.LightOnSecondary,
-            secondaryContainer = VelvetViolet.LightSecondaryContainer, onSecondaryContainer = VelvetViolet.LightOnSecondaryContainer,
-            tertiary = VelvetViolet.LightTertiary, onTertiary = VelvetViolet.LightOnTertiary,
-            tertiaryContainer = VelvetViolet.LightTertiaryContainer, onTertiaryContainer = VelvetViolet.LightOnTertiaryContainer,
-            error = VelvetViolet.LightError, onError = VelvetViolet.LightOnError,
-            errorContainer = VelvetViolet.LightErrorContainer, onErrorContainer = VelvetViolet.LightOnErrorContainer,
-            background = VelvetViolet.LightSurface, onBackground = VelvetViolet.LightOnSurface,
-            surface = Color.White, onSurface = VelvetViolet.LightOnSurface,
-            surfaceVariant = VelvetViolet.LightSurfaceVariant, onSurfaceVariant = VelvetViolet.LightOnSurfaceVariant,
-            outline = VelvetViolet.LightOutline, outlineVariant = VelvetViolet.LightOutlineVariant,
-            inverseSurface = VelvetViolet.LightInverseSurface, inverseOnSurface = VelvetViolet.LightInverseOnSurface,
-            inversePrimary = VelvetViolet.LightInversePrimary, surfaceTint = VelvetViolet.LightSurfaceTint
+        is Green -> lightColorScheme(
+            primary = Green.LightPrimary, onPrimary = Green.LightOnPrimary,
+            primaryContainer = Green.LightPrimaryContainer, onPrimaryContainer = Green.LightOnPrimaryContainer,
+            secondary = Green.LightSecondary, onSecondary = Green.LightOnSecondary,
+            secondaryContainer = Green.LightSecondaryContainer, onSecondaryContainer = Green.LightOnSecondaryContainer,
+            tertiary = Green.LightTertiary, onTertiary = Green.LightOnTertiary,
+            tertiaryContainer = Green.LightTertiaryContainer, onTertiaryContainer = Green.LightOnTertiaryContainer,
+            error = Green.LightError, onError = Green.LightOnError,
+            errorContainer = Green.LightErrorContainer, onErrorContainer = Green.LightOnErrorContainer,
+            background = Green.LightSurface, onBackground = Green.LightOnSurface,
+            surface = Green.LightSurface, onSurface = Green.LightOnSurface,
+            surfaceVariant = Green.LightSurfaceVariant, onSurfaceVariant = Green.LightOnSurfaceVariant,
+            outline = Green.LightOutline, outlineVariant = Green.LightOutlineVariant,
+            inverseSurface = Green.LightInverseSurface, inverseOnSurface = Green.LightInverseOnSurface,
+            inversePrimary = Green.LightInversePrimary, surfaceTint = Green.LightSurfaceTint
         )
-        is SunsetAmber -> lightColorScheme(
-            primary = SunsetAmber.LightPrimary, onPrimary = SunsetAmber.LightOnPrimary,
-            primaryContainer = SunsetAmber.LightPrimaryContainer, onPrimaryContainer = SunsetAmber.LightOnPrimaryContainer,
-            secondary = SunsetAmber.LightSecondary, onSecondary = SunsetAmber.LightOnSecondary,
-            secondaryContainer = SunsetAmber.LightSecondaryContainer, onSecondaryContainer = SunsetAmber.LightOnSecondaryContainer,
-            tertiary = SunsetAmber.LightTertiary, onTertiary = SunsetAmber.LightOnTertiary,
-            tertiaryContainer = SunsetAmber.LightTertiaryContainer, onTertiaryContainer = SunsetAmber.LightOnTertiaryContainer,
-            error = SunsetAmber.LightError, onError = SunsetAmber.LightOnError,
-            errorContainer = SunsetAmber.LightErrorContainer, onErrorContainer = SunsetAmber.LightOnErrorContainer,
-            background = SunsetAmber.LightSurface, onBackground = SunsetAmber.LightOnSurface,
-            surface = Color.White, onSurface = SunsetAmber.LightOnSurface,
-            surfaceVariant = SunsetAmber.LightSurfaceVariant, onSurfaceVariant = SunsetAmber.LightOnSurfaceVariant,
-            outline = SunsetAmber.LightOutline, outlineVariant = SunsetAmber.LightOutlineVariant,
-            inverseSurface = SunsetAmber.LightInverseSurface, inverseOnSurface = SunsetAmber.LightInverseOnSurface,
-            inversePrimary = SunsetAmber.LightInversePrimary, surfaceTint = SunsetAmber.LightSurfaceTint
+        is Red -> lightColorScheme(
+            primary = Red.LightPrimary, onPrimary = Red.LightOnPrimary,
+            primaryContainer = Red.LightPrimaryContainer, onPrimaryContainer = Red.LightOnPrimaryContainer,
+            secondary = Red.LightSecondary, onSecondary = Red.LightOnSecondary,
+            secondaryContainer = Red.LightSecondaryContainer, onSecondaryContainer = Red.LightOnSecondaryContainer,
+            tertiary = Red.LightTertiary, onTertiary = Red.LightOnTertiary,
+            tertiaryContainer = Red.LightTertiaryContainer, onTertiaryContainer = Red.LightOnTertiaryContainer,
+            error = Red.LightError, onError = Red.LightOnError,
+            errorContainer = Red.LightErrorContainer, onErrorContainer = Red.LightOnErrorContainer,
+            background = Red.LightSurface, onBackground = Red.LightOnSurface,
+            surface = Red.LightSurface, onSurface = Red.LightOnSurface,
+            surfaceVariant = Red.LightSurfaceVariant, onSurfaceVariant = Red.LightOnSurfaceVariant,
+            outline = Red.LightOutline, outlineVariant = Red.LightOutlineVariant,
+            inverseSurface = Red.LightInverseSurface, inverseOnSurface = Red.LightInverseOnSurface,
+            inversePrimary = Red.LightInversePrimary, surfaceTint = Red.LightSurfaceTint
         )
         else -> lightColorScheme(
-            primary = RoseBloom.LightPrimary, onPrimary = RoseBloom.LightOnPrimary,
-            primaryContainer = RoseBloom.LightPrimaryContainer, onPrimaryContainer = RoseBloom.LightOnPrimaryContainer,
-            secondary = RoseBloom.LightSecondary, onSecondary = RoseBloom.LightOnSecondary,
-            secondaryContainer = RoseBloom.LightSecondaryContainer, onSecondaryContainer = RoseBloom.LightOnSecondaryContainer,
-            tertiary = RoseBloom.LightTertiary, onTertiary = RoseBloom.LightOnTertiary,
-            tertiaryContainer = RoseBloom.LightTertiaryContainer, onTertiaryContainer = RoseBloom.LightOnTertiaryContainer,
-            error = RoseBloom.LightError, onError = RoseBloom.LightOnError,
-            errorContainer = RoseBloom.LightErrorContainer, onErrorContainer = RoseBloom.LightOnErrorContainer,
-            background = RoseBloom.LightSurface, onBackground = RoseBloom.LightOnSurface,
-            surface = Color.White, onSurface = RoseBloom.LightOnSurface,
-            surfaceVariant = RoseBloom.LightSurfaceVariant, onSurfaceVariant = RoseBloom.LightOnSurfaceVariant,
-            outline = RoseBloom.LightOutline, outlineVariant = RoseBloom.LightOutlineVariant,
-            inverseSurface = RoseBloom.LightInverseSurface, inverseOnSurface = RoseBloom.LightInverseOnSurface,
-            inversePrimary = RoseBloom.LightInversePrimary, surfaceTint = RoseBloom.LightSurfaceTint
+            primary = Pink.LightPrimary, onPrimary = Pink.LightOnPrimary,
+            primaryContainer = Pink.LightPrimaryContainer, onPrimaryContainer = Pink.LightOnPrimaryContainer,
+            secondary = Pink.LightSecondary, onSecondary = Pink.LightOnSecondary,
+            secondaryContainer = Pink.LightSecondaryContainer, onSecondaryContainer = Pink.LightOnSecondaryContainer,
+            tertiary = Pink.LightTertiary, onTertiary = Pink.LightOnTertiary,
+            tertiaryContainer = Pink.LightTertiaryContainer, onTertiaryContainer = Pink.LightOnTertiaryContainer,
+            error = Pink.LightError, onError = Pink.LightOnError,
+            errorContainer = Pink.LightErrorContainer, onErrorContainer = Pink.LightOnErrorContainer,
+            background = Pink.LightSurface, onBackground = Pink.LightOnSurface,
+            surface = Pink.LightSurface, onSurface = Pink.LightOnSurface,
+            surfaceVariant = Pink.LightSurfaceVariant, onSurfaceVariant = Pink.LightOnSurfaceVariant,
+            outline = Pink.LightOutline, outlineVariant = Pink.LightOutlineVariant,
+            inverseSurface = Pink.LightInverseSurface, inverseOnSurface = Pink.LightInverseOnSurface,
+            inversePrimary = Pink.LightInversePrimary, surfaceTint = Pink.LightSurfaceTint
         )
     }
 }
 
 private fun buildDarkColorScheme(theme: Any): androidx.compose.material3.ColorScheme {
     return when (theme) {
-        is MintForest -> darkColorScheme(
-            primary = MintForest.DarkPrimary, onPrimary = MintForest.DarkOnPrimary,
-            primaryContainer = MintForest.DarkPrimaryContainer, onPrimaryContainer = MintForest.DarkOnPrimaryContainer,
-            secondary = MintForest.DarkSecondary, onSecondary = MintForest.DarkOnSecondary,
-            secondaryContainer = MintForest.DarkSecondaryContainer, onSecondaryContainer = MintForest.DarkOnSecondaryContainer,
-            tertiary = MintForest.DarkTertiary, onTertiary = MintForest.DarkOnTertiary,
-            tertiaryContainer = MintForest.DarkTertiaryContainer, onTertiaryContainer = MintForest.DarkOnTertiaryContainer,
-            error = MintForest.DarkError, onError = MintForest.DarkOnError,
-            errorContainer = MintForest.DarkErrorContainer, onErrorContainer = MintForest.DarkOnErrorContainer,
-            background = MintForest.DarkSurface, onBackground = MintForest.DarkOnSurface,
-            surface = MintForest.DarkSurface, onSurface = MintForest.DarkOnSurface,
-            surfaceVariant = MintForest.DarkSurfaceVariant, onSurfaceVariant = MintForest.DarkOnSurfaceVariant,
-            outline = MintForest.DarkOutline, outlineVariant = MintForest.DarkOutlineVariant,
-            inverseSurface = MintForest.DarkInverseSurface, inverseOnSurface = MintForest.DarkInverseOnSurface,
-            inversePrimary = MintForest.DarkInversePrimary, surfaceTint = MintForest.DarkSurfaceTint
+        is Gold -> darkColorScheme(
+            primary = Gold.DarkPrimary, onPrimary = Gold.DarkOnPrimary,
+            primaryContainer = Gold.DarkPrimaryContainer, onPrimaryContainer = Gold.DarkOnPrimaryContainer,
+            secondary = Gold.DarkSecondary, onSecondary = Gold.DarkOnSecondary,
+            secondaryContainer = Gold.DarkSecondaryContainer, onSecondaryContainer = Gold.DarkOnSecondaryContainer,
+            tertiary = Gold.DarkTertiary, onTertiary = Gold.DarkOnTertiary,
+            tertiaryContainer = Gold.DarkTertiaryContainer, onTertiaryContainer = Gold.DarkOnTertiaryContainer,
+            error = Gold.DarkError, onError = Gold.DarkOnError,
+            errorContainer = Gold.DarkErrorContainer, onErrorContainer = Gold.DarkOnErrorContainer,
+            background = Gold.DarkSurface, onBackground = Gold.DarkOnSurface,
+            surface = Gold.DarkSurface, onSurface = Gold.DarkOnSurface,
+            surfaceVariant = Gold.DarkSurfaceVariant, onSurfaceVariant = Gold.DarkOnSurfaceVariant,
+            outline = Gold.DarkOutline, outlineVariant = Gold.DarkOutlineVariant,
+            inverseSurface = Gold.DarkInverseSurface, inverseOnSurface = Gold.DarkInverseOnSurface,
+            inversePrimary = Gold.DarkInversePrimary, surfaceTint = Gold.DarkSurfaceTint
         )
-        is OceanBlue -> darkColorScheme(
-            primary = OceanBlue.DarkPrimary, onPrimary = OceanBlue.DarkOnPrimary,
-            primaryContainer = OceanBlue.DarkPrimaryContainer, onPrimaryContainer = OceanBlue.DarkOnPrimaryContainer,
-            secondary = OceanBlue.DarkSecondary, onSecondary = OceanBlue.DarkOnSecondary,
-            secondaryContainer = OceanBlue.DarkSecondaryContainer, onSecondaryContainer = OceanBlue.DarkOnSecondaryContainer,
-            tertiary = OceanBlue.DarkTertiary, onTertiary = OceanBlue.DarkOnTertiary,
-            tertiaryContainer = OceanBlue.DarkTertiaryContainer, onTertiaryContainer = OceanBlue.DarkOnTertiaryContainer,
-            error = OceanBlue.DarkError, onError = OceanBlue.DarkOnError,
-            errorContainer = OceanBlue.DarkErrorContainer, onErrorContainer = OceanBlue.DarkOnErrorContainer,
-            background = OceanBlue.DarkSurface, onBackground = OceanBlue.DarkOnSurface,
-            surface = OceanBlue.DarkSurface, onSurface = OceanBlue.DarkOnSurface,
-            surfaceVariant = OceanBlue.DarkSurfaceVariant, onSurfaceVariant = OceanBlue.DarkOnSurfaceVariant,
-            outline = OceanBlue.DarkOutline, outlineVariant = OceanBlue.DarkOutlineVariant,
-            inverseSurface = OceanBlue.DarkInverseSurface, inverseOnSurface = OceanBlue.DarkInverseOnSurface,
-            inversePrimary = OceanBlue.DarkInversePrimary, surfaceTint = OceanBlue.DarkSurfaceTint
+        is Blue -> darkColorScheme(
+            primary = Blue.DarkPrimary, onPrimary = Blue.DarkOnPrimary,
+            primaryContainer = Blue.DarkPrimaryContainer, onPrimaryContainer = Blue.DarkOnPrimaryContainer,
+            secondary = Blue.DarkSecondary, onSecondary = Blue.DarkOnSecondary,
+            secondaryContainer = Blue.DarkSecondaryContainer, onSecondaryContainer = Blue.DarkOnSecondaryContainer,
+            tertiary = Blue.DarkTertiary, onTertiary = Blue.DarkOnTertiary,
+            tertiaryContainer = Blue.DarkTertiaryContainer, onTertiaryContainer = Blue.DarkOnTertiaryContainer,
+            error = Blue.DarkError, onError = Blue.DarkOnError,
+            errorContainer = Blue.DarkErrorContainer, onErrorContainer = Blue.DarkOnErrorContainer,
+            background = Blue.DarkSurface, onBackground = Blue.DarkOnSurface,
+            surface = Blue.DarkSurface, onSurface = Blue.DarkOnSurface,
+            surfaceVariant = Blue.DarkSurfaceVariant, onSurfaceVariant = Blue.DarkOnSurfaceVariant,
+            outline = Blue.DarkOutline, outlineVariant = Blue.DarkOutlineVariant,
+            inverseSurface = Blue.DarkInverseSurface, inverseOnSurface = Blue.DarkInverseOnSurface,
+            inversePrimary = Blue.DarkInversePrimary, surfaceTint = Blue.DarkSurfaceTint
         )
-        is VelvetViolet -> darkColorScheme(
-            primary = VelvetViolet.DarkPrimary, onPrimary = VelvetViolet.DarkOnPrimary,
-            primaryContainer = VelvetViolet.DarkPrimaryContainer, onPrimaryContainer = VelvetViolet.DarkOnPrimaryContainer,
-            secondary = VelvetViolet.DarkSecondary, onSecondary = VelvetViolet.DarkOnSecondary,
-            secondaryContainer = VelvetViolet.DarkSecondaryContainer, onSecondaryContainer = VelvetViolet.DarkOnSecondaryContainer,
-            tertiary = VelvetViolet.DarkTertiary, onTertiary = VelvetViolet.DarkOnTertiary,
-            tertiaryContainer = VelvetViolet.DarkTertiaryContainer, onTertiaryContainer = VelvetViolet.DarkOnTertiaryContainer,
-            error = VelvetViolet.DarkError, onError = VelvetViolet.DarkOnError,
-            errorContainer = VelvetViolet.DarkErrorContainer, onErrorContainer = VelvetViolet.DarkOnErrorContainer,
-            background = VelvetViolet.DarkSurface, onBackground = VelvetViolet.DarkOnSurface,
-            surface = VelvetViolet.DarkSurface, onSurface = VelvetViolet.DarkOnSurface,
-            surfaceVariant = VelvetViolet.DarkSurfaceVariant, onSurfaceVariant = VelvetViolet.DarkOnSurfaceVariant,
-            outline = VelvetViolet.DarkOutline, outlineVariant = VelvetViolet.DarkOutlineVariant,
-            inverseSurface = VelvetViolet.DarkInverseSurface, inverseOnSurface = VelvetViolet.DarkInverseOnSurface,
-            inversePrimary = VelvetViolet.DarkInversePrimary, surfaceTint = VelvetViolet.DarkSurfaceTint
+        is Green -> darkColorScheme(
+            primary = Green.DarkPrimary, onPrimary = Green.DarkOnPrimary,
+            primaryContainer = Green.DarkPrimaryContainer, onPrimaryContainer = Green.DarkOnPrimaryContainer,
+            secondary = Green.DarkSecondary, onSecondary = Green.DarkOnSecondary,
+            secondaryContainer = Green.DarkSecondaryContainer, onSecondaryContainer = Green.DarkOnSecondaryContainer,
+            tertiary = Green.DarkTertiary, onTertiary = Green.DarkOnTertiary,
+            tertiaryContainer = Green.DarkTertiaryContainer, onTertiaryContainer = Green.DarkOnTertiaryContainer,
+            error = Green.DarkError, onError = Green.DarkOnError,
+            errorContainer = Green.DarkErrorContainer, onErrorContainer = Green.DarkOnErrorContainer,
+            background = Green.DarkSurface, onBackground = Green.DarkOnSurface,
+            surface = Green.DarkSurface, onSurface = Green.DarkOnSurface,
+            surfaceVariant = Green.DarkSurfaceVariant, onSurfaceVariant = Green.DarkOnSurfaceVariant,
+            outline = Green.DarkOutline, outlineVariant = Green.DarkOutlineVariant,
+            inverseSurface = Green.DarkInverseSurface, inverseOnSurface = Green.DarkInverseOnSurface,
+            inversePrimary = Green.DarkInversePrimary, surfaceTint = Green.DarkSurfaceTint
         )
-        is SunsetAmber -> darkColorScheme(
-            primary = SunsetAmber.DarkPrimary, onPrimary = SunsetAmber.DarkOnPrimary,
-            primaryContainer = SunsetAmber.DarkPrimaryContainer, onPrimaryContainer = SunsetAmber.DarkOnPrimaryContainer,
-            secondary = SunsetAmber.DarkSecondary, onSecondary = SunsetAmber.DarkOnSecondary,
-            secondaryContainer = SunsetAmber.DarkSecondaryContainer, onSecondaryContainer = SunsetAmber.DarkOnSecondaryContainer,
-            tertiary = SunsetAmber.DarkTertiary, onTertiary = SunsetAmber.DarkOnTertiary,
-            tertiaryContainer = SunsetAmber.DarkTertiaryContainer, onTertiaryContainer = SunsetAmber.DarkOnTertiaryContainer,
-            error = SunsetAmber.DarkError, onError = SunsetAmber.DarkOnError,
-            errorContainer = SunsetAmber.DarkErrorContainer, onErrorContainer = SunsetAmber.DarkOnErrorContainer,
-            background = SunsetAmber.DarkSurface, onBackground = SunsetAmber.DarkOnSurface,
-            surface = SunsetAmber.DarkSurface, onSurface = SunsetAmber.DarkOnSurface,
-            surfaceVariant = SunsetAmber.DarkSurfaceVariant, onSurfaceVariant = SunsetAmber.DarkOnSurfaceVariant,
-            outline = SunsetAmber.DarkOutline, outlineVariant = SunsetAmber.DarkOutlineVariant,
-            inverseSurface = SunsetAmber.DarkInverseSurface, inverseOnSurface = SunsetAmber.DarkInverseOnSurface,
-            inversePrimary = SunsetAmber.DarkInversePrimary, surfaceTint = SunsetAmber.DarkSurfaceTint
+        is Red -> darkColorScheme(
+            primary = Red.DarkPrimary, onPrimary = Red.DarkOnPrimary,
+            primaryContainer = Red.DarkPrimaryContainer, onPrimaryContainer = Red.DarkOnPrimaryContainer,
+            secondary = Red.DarkSecondary, onSecondary = Red.DarkOnSecondary,
+            secondaryContainer = Red.DarkSecondaryContainer, onSecondaryContainer = Red.DarkOnSecondaryContainer,
+            tertiary = Red.DarkTertiary, onTertiary = Red.DarkOnTertiary,
+            tertiaryContainer = Red.DarkTertiaryContainer, onTertiaryContainer = Red.DarkOnTertiaryContainer,
+            error = Red.DarkError, onError = Red.DarkOnError,
+            errorContainer = Red.DarkErrorContainer, onErrorContainer = Red.DarkOnErrorContainer,
+            background = Red.DarkSurface, onBackground = Red.DarkOnSurface,
+            surface = Red.DarkSurface, onSurface = Red.DarkOnSurface,
+            surfaceVariant = Red.DarkSurfaceVariant, onSurfaceVariant = Red.DarkOnSurfaceVariant,
+            outline = Red.DarkOutline, outlineVariant = Red.DarkOutlineVariant,
+            inverseSurface = Red.DarkInverseSurface, inverseOnSurface = Red.DarkInverseOnSurface,
+            inversePrimary = Red.DarkInversePrimary, surfaceTint = Red.DarkSurfaceTint
         )
         else -> darkColorScheme(
-            primary = RoseBloom.DarkPrimary, onPrimary = RoseBloom.DarkOnPrimary,
-            primaryContainer = RoseBloom.DarkPrimaryContainer, onPrimaryContainer = RoseBloom.DarkOnPrimaryContainer,
-            secondary = RoseBloom.DarkSecondary, onSecondary = RoseBloom.DarkOnSecondary,
-            secondaryContainer = RoseBloom.DarkSecondaryContainer, onSecondaryContainer = RoseBloom.DarkOnSecondaryContainer,
-            tertiary = RoseBloom.DarkTertiary, onTertiary = RoseBloom.DarkOnTertiary,
-            tertiaryContainer = RoseBloom.DarkTertiaryContainer, onTertiaryContainer = RoseBloom.DarkOnTertiaryContainer,
-            error = RoseBloom.DarkError, onError = RoseBloom.DarkOnError,
-            errorContainer = RoseBloom.DarkErrorContainer, onErrorContainer = RoseBloom.DarkOnErrorContainer,
-            background = RoseBloom.DarkSurface, onBackground = RoseBloom.DarkOnSurface,
-            surface = RoseBloom.DarkSurface, onSurface = RoseBloom.DarkOnSurface,
-            surfaceVariant = RoseBloom.DarkSurfaceVariant, onSurfaceVariant = RoseBloom.DarkOnSurfaceVariant,
-            outline = RoseBloom.DarkOutline, outlineVariant = RoseBloom.DarkOutlineVariant,
-            inverseSurface = RoseBloom.DarkInverseSurface, inverseOnSurface = RoseBloom.DarkInverseOnSurface,
-            inversePrimary = RoseBloom.DarkInversePrimary, surfaceTint = RoseBloom.DarkSurfaceTint
+            primary = Pink.DarkPrimary, onPrimary = Pink.DarkOnPrimary,
+            primaryContainer = Pink.DarkPrimaryContainer, onPrimaryContainer = Pink.DarkOnPrimaryContainer,
+            secondary = Pink.DarkSecondary, onSecondary = Pink.DarkOnSecondary,
+            secondaryContainer = Pink.DarkSecondaryContainer, onSecondaryContainer = Pink.DarkOnSecondaryContainer,
+            tertiary = Pink.DarkTertiary, onTertiary = Pink.DarkOnTertiary,
+            tertiaryContainer = Pink.DarkTertiaryContainer, onTertiaryContainer = Pink.DarkOnTertiaryContainer,
+            error = Pink.DarkError, onError = Pink.DarkOnError,
+            errorContainer = Pink.DarkErrorContainer, onErrorContainer = Pink.DarkOnErrorContainer,
+            background = Pink.DarkSurface, onBackground = Pink.DarkOnSurface,
+            surface = Pink.DarkSurface, onSurface = Pink.DarkOnSurface,
+            surfaceVariant = Pink.DarkSurfaceVariant, onSurfaceVariant = Pink.DarkOnSurfaceVariant,
+            outline = Pink.DarkOutline, outlineVariant = Pink.DarkOutlineVariant,
+            inverseSurface = Pink.DarkInverseSurface, inverseOnSurface = Pink.DarkInverseOnSurface,
+            inversePrimary = Pink.DarkInversePrimary, surfaceTint = Pink.DarkSurfaceTint
         )
     }
 }
 
 private fun getThemeObject(themeEnum: AppThemeEnum): Any {
     return when (themeEnum) {
-        AppThemeEnum.MINT_FOREST -> MintForest
-        AppThemeEnum.OCEAN_BLUE -> OceanBlue
-        AppThemeEnum.VELVET_VIOLET -> VelvetViolet
-        AppThemeEnum.SUNSET_AMBER -> SunsetAmber
-        AppThemeEnum.ROSE_BLOOM -> RoseBloom
+        AppThemeEnum.GOLD -> Gold
+        AppThemeEnum.BLUE -> Blue
+        AppThemeEnum.GREEN -> Green
+        AppThemeEnum.RED -> Red
+        AppThemeEnum.PINK -> Pink
     }
 }
 
