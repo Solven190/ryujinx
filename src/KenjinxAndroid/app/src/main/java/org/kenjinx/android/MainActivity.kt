@@ -12,13 +12,10 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -27,6 +24,8 @@ import androidx.documentfile.provider.DocumentFile
 import com.anggrayudi.storage.SimpleStorageHelper
 import com.sun.jna.JNIEnv
 import org.kenjinx.android.ui.theme.KenjinxAndroidTheme
+import org.kenjinx.android.ui.theme.ThemeMode
+import org.kenjinx.android.ui.theme.getSavedThemeMode
 import org.kenjinx.android.viewmodels.MainViewModel
 import org.kenjinx.android.viewmodels.QuickSettings
 import org.kenjinx.android.viewmodels.GameModel
@@ -99,10 +98,17 @@ class MainActivity : BaseActivity() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         if (visible) {
             windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
-            // Re-apply icon colors based on theme
-            val isDarkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            windowInsetsController.isAppearanceLightStatusBars = !isDarkTheme
-            windowInsetsController.isAppearanceLightNavigationBars = !isDarkTheme
+            
+            // Get current theme state to set icon colors correctly
+            val mode = getSavedThemeMode(this)
+            val isDark = when(mode) {
+                ThemeMode.DARK -> true
+                ThemeMode.LIGHT -> false
+                ThemeMode.SYSTEM -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            }
+            
+            windowInsetsController.isAppearanceLightStatusBars = !isDark
+            windowInsetsController.isAppearanceLightNavigationBars = !isDark
         } else {
             windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
@@ -341,19 +347,6 @@ class MainActivity : BaseActivity() {
         mainViewModel?.apply {
             setContent {
                 KenjinxAndroidTheme {
-                    val view = LocalView.current
-                    val isDarkTheme = isSystemInDarkTheme()
-                    
-                    if (!view.isInEditMode) {
-                        SideEffect {
-                            val window = (view.context as Activity).window
-                            val insetsController = WindowCompat.getInsetsController(window, view)
-                            // If dark theme, make icons light (false). If light theme, make icons dark (true).
-                            insetsController.isAppearanceLightStatusBars = !isDarkTheme
-                            insetsController.isAppearanceLightNavigationBars = !isDarkTheme
-                        }
-                    }
-
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
