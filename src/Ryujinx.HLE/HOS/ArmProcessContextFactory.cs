@@ -100,13 +100,8 @@ namespace Ryujinx.HLE.HOS
                 if (!MemoryBlock.SupportsFlags(MemoryAllocationFlags.ViewCompatible))
                 {
                     Logger.Warning?.Print(LogClass.Cpu, "Host system doesn't support views, falling back to software page table");
-
                     mode = MemoryManagerMode.SoftwarePageTable;
                 }
-
-                ICpuEngine cpuEngine = isArm64Host && mode is MemoryManagerMode.HostMapped or MemoryManagerMode.HostMappedUnsafe
-                    ? new LightningJitEngine(_tickSource)
-                    : new JitEngine(_tickSource);
 
                 AddressSpace addressSpace = null;
                 MemoryBlock asNoMirror = null;
@@ -119,10 +114,28 @@ namespace Ryujinx.HLE.HOS
                         !AddressSpace.TryCreateWithoutMirror(addressSpaceSize, out asNoMirror))
                     {
                         Logger.Warning?.Print(LogClass.Cpu, "Address space creation failed, falling back to software page table");
-
+                        mode = MemoryManagerMode.SoftwarePageTable;
+                    }
+                    else if (addressSpace != null && (ulong)addressSpace.AddressSpaceSize < addressSpaceSize)
+                    {
+                        Logger.Warning?.Print(LogClass.Cpu, $"Allocated address space (0x{addressSpace.AddressSpaceSize:X}) is smaller than guest application requirements (0x{addressSpaceSize:X}). Falling back to software page table.");
+                        addressSpace.Dispose();
+                        addressSpace = null;
+                        mode = MemoryManagerMode.SoftwarePageTable;
+                    }
+                    else if (asNoMirror != null && (ulong)asNoMirror.Size < addressSpaceSize)
+                    {
+                        Logger.Warning?.Print(LogClass.Cpu, $"Allocated address space (0x{asNoMirror.Size:X}) is smaller than guest application requirements (0x{addressSpaceSize:X}). Falling back to software page table.");
+                        asNoMirror.Dispose();
+                        asNoMirror = null;
                         mode = MemoryManagerMode.SoftwarePageTable;
                     }
                 }
+
+                // Create the engine based on the FINAL mode (after possible fallbacks)
+                ICpuEngine cpuEngine = (isArm64Host && mode is MemoryManagerMode.HostMapped or MemoryManagerMode.HostMappedUnsafe)
+                    ? new LightningJitEngine(_tickSource)
+                    : new JitEngine(_tickSource);
 
                 switch (mode)
                 {
