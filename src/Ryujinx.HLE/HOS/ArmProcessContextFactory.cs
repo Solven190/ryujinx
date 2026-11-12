@@ -122,6 +122,20 @@ namespace Ryujinx.HLE.HOS
 
                         mode = MemoryManagerMode.SoftwarePageTable;
                     }
+                    else if (addressSpace != null && (ulong)addressSpace.AddressSpaceSize < addressSpaceSize)
+                    {
+                        Logger.Warning?.Print(LogClass.Cpu, $"Allocated address space (0x{addressSpace.AddressSpaceSize:X}) is smaller than guest application requirements (0x{addressSpaceSize:X}). Falling back to software page table for stability.");
+                        addressSpace.Dispose();
+                        addressSpace = null;
+                        mode = MemoryManagerMode.SoftwarePageTable;
+                    }
+                    else if (asNoMirror != null && (ulong)asNoMirror.Size < addressSpaceSize)
+                    {
+                        Logger.Warning?.Print(LogClass.Cpu, $"Allocated address space (0x{asNoMirror.Size:X}) is smaller than guest application requirements (0x{addressSpaceSize:X}). Falling back to software page table for stability.");
+                        asNoMirror.Dispose();
+                        asNoMirror = null;
+                        mode = MemoryManagerMode.SoftwarePageTable;
+                    }
                 }
 
                 switch (mode)
