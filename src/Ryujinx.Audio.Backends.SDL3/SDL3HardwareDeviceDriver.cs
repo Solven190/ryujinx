@@ -132,8 +132,8 @@ namespace Ryujinx.Audio.Backends.SDL3
             SDL_AudioSpec got = desired;
             SDL_AudioStreamCallbackPointer pCallback = callback != null ? (SDL_AudioStreamCallbackPointer)Marshal.GetFunctionPointerForDelegate(callback) : null;
 
-            // From SDL 3 and on, SDL requires us to set this as a hint
-            SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, $"{sampleCount}");
+            uint forcedSampleCount = Math.Max(sampleCount, 2048);
+            SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, $"{forcedSampleCount}");
             SDL_AudioStream* device = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &got, pCallback, 0);
 
             if (device == null)
@@ -199,7 +199,6 @@ namespace Ryujinx.Audio.Backends.SDL3
 
         public bool SupportsDirection(Direction direction)
         {
-            // TODO: add direction input when supported.
             return direction == Direction.Output;
         }
     }
