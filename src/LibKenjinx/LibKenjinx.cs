@@ -14,7 +14,6 @@ using LibKenjinx.Android;
 using OpenTK.Audio.OpenAL;
 using Ryujinx.Audio.Backends.Dummy;
 using Ryujinx.Audio.Backends.SDL3;
-using Ryujinx.Audio.Backends.OpenAL;
 using Ryujinx.Audio.Integration;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
@@ -102,29 +101,8 @@ namespace LibKenjinx
 
         public static void InitializeAudio()
         {
-            try
-            {
-                string configDir = Path.Combine(AppDataManager.BaseDirPath, "OpenAL");
-                Directory.CreateDirectory(configDir);
-                string configPath = Path.Combine(configDir, "alsoft.conf");
-                
-                string configContent = 
-                    "[general]\n" +
-                    "period-size = 2048\n" +
-                    "periods = 3\n" +
-                    "\n" +
-                    "[opensl]\n" +
-                    "period-size = 2048\n" +
-                    "periods = 3\n";
-                
-                File.WriteAllText(configPath, configContent);
-                Environment.SetEnvironmentVariable("ALSOFT_CONF", configPath);
-            }
-            catch
-            {
-            }
-            
-            AudioDriver = new OpenALHardwareDeviceDriver();
+            Environment.SetEnvironmentVariable("SDL_AUDIODRIVER", "aaudio");
+            AudioDriver = new SDL3HardwareDeviceDriver();
         }
 
         public static GameStats GetGameStats()
