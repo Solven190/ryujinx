@@ -53,7 +53,7 @@ namespace Ryujinx.Audio.Backends.SDL3
 
             if (needAudioSetup)
             {
-                _sampleCount = Math.Max(Constants.TargetSampleCount, bufferSampleCount);
+                _sampleCount = Math.Max(2048u, Math.Max(Constants.TargetSampleCount, bufferSampleCount));
 
                 SDL_AudioStream* newOutputStream = SDL3HardwareDeviceDriver.OpenStream(RequestedSampleFormat, RequestedSampleRate, RequestedChannelCount, _sampleCount, _callbackDelegate);
 
@@ -92,7 +92,6 @@ namespace Ryujinx.Audio.Backends.SDL3
 
             if (frameCount == 0)
             {
-                // SDL3 left the responsibility to the user to clear the buffer.
                 streamSpan.Clear();
 
                 return;
@@ -104,14 +103,11 @@ namespace Ryujinx.Audio.Backends.SDL3
 
             _ringBuffer.Read(samples, 0, samples.Length);
 
-            // Zero the dest buffer
             streamSpan.Clear();
 
             fixed (byte* pStreamDst = streamSpan) {
                 fixed (byte* pStreamSrc = samples)
                 {
-
-                    // Apply volume to written data
                     SDL_MixAudio(pStreamDst, pStreamSrc, _nativeSampleFormat, (uint)samples.Length, _driver.Volume * _volume);
                     SDL_PutAudioStreamData(streamDevice, (nint)pStreamDst, additionalAmount);
                 }
@@ -141,7 +137,6 @@ namespace Ryujinx.Audio.Backends.SDL3
                 Interlocked.Add(ref _playedSampleCount, playedAudioBufferSampleCount);
             }
 
-            // Notify the output if needed.
             if (needUpdate)
             {
                 _updateRequiredEvent.Set();
