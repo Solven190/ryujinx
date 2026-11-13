@@ -1054,8 +1054,8 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
                 ProcessCreationFlags.AddressSpace32Bit => 32,
                 ProcessCreationFlags.AddressSpace64BitDeprecated => 36,
                 ProcessCreationFlags.AddressSpace32BitWithoutAlias => 32,
-                ProcessCreationFlags.AddressSpace64Bit => 39,
-                _ => 39,
+                ProcessCreationFlags.AddressSpace64Bit => 36, // Changed from 39 to 36
+                _ => 36, // Changed from 39 to 36
             };
 
             bool for64Bit = flags.HasFlag(ProcessCreationFlags.Is64Bit);
