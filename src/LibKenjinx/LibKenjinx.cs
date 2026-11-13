@@ -170,6 +170,7 @@ namespace LibKenjinx
                             pfsTemp.Initialize(gameStream.AsStorage()).ThrowIfFailure();
                             pfs = pfsTemp;
 
+                            // If the NSP doesn't have a main NCA, decrement the number of applications found and then continue to the next application.
                             bool hasMainNca = false;
 
                             foreach (DirectoryEntryEx fileEntry in pfs.EnumerateEntries("/", "*"))
@@ -183,6 +184,7 @@ namespace LibKenjinx
                                     Nca nca = new(SwitchDevice.VirtualFileSystem.KeySet, ncaFile.Get.AsStorage());
                                     int dataIndex = Nca.GetSectionIndexFromType(NcaSectionType.Data, NcaContentType.Program);
 
+                                    // Some main NCAs don't have a data partition, so check if the partition exists before opening it
                                     if (nca.Header.ContentType == NcaContentType.Program && !(nca.SectionExists(NcaSectionType.Data) && nca.Header.GetFsHeader(dataIndex).IsPatchSection()))
                                     {
                                         hasMainNca = true;
@@ -228,8 +230,10 @@ namespace LibKenjinx
                                 return null;
                             }
 
+                            // Check if there is an update available.
                             if (IsUpdateApplied(gameInfo.TitleId, out IFileSystem? updatedControlFs))
                             {
+                                // Replace the original ControlFs by the updated one.
                                 controlFs = updatedControlFs;
                             }
 
@@ -237,6 +241,7 @@ namespace LibKenjinx
 
                             GetGameInformation(ref controlHolder.Value, out gameInfo.TitleName, out _, out gameInfo.Developer, out gameInfo.Version);
 
+                            // Read the icon from the ControlFS and store it as a byte array
                             try
                             {
                                 using UniqueRef<IFile> icon = new();
@@ -301,11 +306,13 @@ namespace LibKenjinx
                             ulong nacpOffset = reader.ReadUInt64();
                             ulong nacpSize = reader.ReadUInt64();
 
+                            // Reads and stores game icon as byte array
                             if (iconSize > 0)
                             {
                                 gameInfo.Icon = Read(assetOffset + iconOffset, (int)iconSize);
                             }
 
+                            // Read the NACP data
                             Read(assetOffset + (int)nacpOffset, (int)nacpSize).AsSpan().CopyTo(controlHolder.ByteSpan);
 
                             GetGameInformation(ref controlHolder.Value, out gameInfo.TitleName, out _, out gameInfo.Developer, out gameInfo.Version);
@@ -418,6 +425,7 @@ namespace LibKenjinx
                     Logger.Warning?.Print(LogClass.Application, "Control NCA is null. Unable to load control FS.");
                 }
 
+                // Return the ControlFS
                 controlFs = controlNca?.OpenFileSystem(NcaSectionType.Data, SwitchDevice.EnableFsIntegrityChecks ? IntegrityCheckLevel.ErrorOnInvalid : IntegrityCheckLevel.None);
                 titleId = controlNca?.Header.TitleId.ToString("x16");
             }
@@ -508,8 +516,10 @@ namespace LibKenjinx
 
                 if (ulong.TryParse(titleId, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out ulong titleIdBase))
                 {
+                    // Clear the program index part.
                     titleIdBase &= ~0xFUL;
 
+                    // Load update information if exists.
                     string titleUpdateMetadataPath = Path.Combine(AppDataManager.GamesDirPath, titleIdBase.ToString("x16"), "updates.json");
 
                     if (File.Exists(titleUpdateMetadataPath))
@@ -832,6 +842,11 @@ namespace LibKenjinx
 
             ContentManager = new ContentManager(VirtualFileSystem);
 
+            // Save data created before we supported extra data in directory save data will not work properly if
+            // given empty extra data. Luckily some of that extra data can be created using the data from
+            // the save data indexer, which should be enough to check access permissions for user saves.
+            // Every single save data's extra data will be checked and fixed if needed each time the emulator is opened.
+            // Consider removing this at some point in the future when we don't need to worry about old saves.
             VirtualFileSystem.FixExtraData(LibHacHorizonManager.RyujinxClient);
 
             AccountManager = new AccountManager(LibHacHorizonManager.RyujinxClient);
@@ -936,12 +951,14 @@ namespace LibKenjinx
                 control.SaveDataOwnerId = applicationId.Value;
             }
 
+            // --- Prepare paths for the physical save directory (Android sandbox)
             string savesRoot = Path.Combine(
                 AppDataManager.BaseDirPath,
                 VirtualFileSystem.UserNandPath,
                 "save"
             );
 
+            // Remember the previous list of existing save dirs (to recognize new creation)
             string[] before = Array.Empty<string>();
             try
             {
@@ -950,6 +967,7 @@ namespace LibKenjinx
             }
             catch { /* ignore */ }
 
+            // Call existing Horizon APIs to create/secure the saves
             if (LibHacHorizonManager != null)
             {
                 Result rc = LibHacHorizonManager.RyujinxClient.Fs.EnsureApplicationCacheStorage(out _, out _, applicationId, in control);
@@ -970,6 +988,7 @@ namespace LibKenjinx
                 }
             }
 
+            // Get the after-list of save dirs and calculate the difference
             string? createdSaveDirName = null;
             try
             {
@@ -982,6 +1001,7 @@ namespace LibKenjinx
                 {
                     if (!beforeSet.Contains(d))
                     {
+                        // This is most likely the newly created save folder
                         createdSaveDirName = Path.GetFileName(d);
                         break;
                     }
@@ -989,11 +1009,14 @@ namespace LibKenjinx
             }
             catch
             {
+                // If the listing fails, we simply continue without detection.
             }
 
+            // TitleId string normalized
             string titleIdHex = titleId.ToString("x16");
             string titleName = TryGetTitleName(ref control) ?? "Unknown";
 
+            // Write marker file & mapping (now as upsert, no longer append-only)
             try
             {
                 if (!string.IsNullOrEmpty(createdSaveDirName))
@@ -1023,13 +1046,22 @@ namespace LibKenjinx
                 .Replace("\n", "\\n");
         }
 
+        /// <summary>
+        /// Updates .../save/titleid_map.ndjson in NDJSON format:
+        /// - Reads existing lines
+        /// - Replaces/adds entry for titleId
+        /// - Completely rewrites the file (no unlimited size increase)
+        /// - NEVER overwrites the folder with an empty value; attempts to determine it via markers
+        /// </summary>
         private static void UpsertTitleMapNdjson(string savesRoot, string? titleIdHex, string? titleName, string createdFolder)
         {
             Directory.CreateDirectory(savesRoot);
             string mapPath = Path.Combine(savesRoot, "titleid_map.ndjson");
 
+            // titleId (lowercase) -> (Name, Folder, Timestamp)
             Dictionary<string, (string Name, string Folder, string Timestamp)> byTitleId = new(StringComparer.OrdinalIgnoreCase);
 
+            // Read existing file
             try
             {
                 if (File.Exists(mapPath))
@@ -1054,6 +1086,7 @@ namespace LibKenjinx
                         }
                         catch
                         {
+                            // ignore corrupt entry
                         }
                     }
                 }
@@ -1066,9 +1099,11 @@ namespace LibKenjinx
             string nowIso   = DateTime.UtcNow.ToString("O");
             string titleIdLc = (titleIdHex ?? string.Empty).ToLowerInvariant();
 
+            // 1) take existing folder if known
             byTitleId.TryGetValue(titleIdLc, out (string Name, string Folder, string Timestamp) existing);
             string existingFolder = existing.Folder ?? "";
 
+            // 2) figure out effective folder
             string effectiveFolder = createdFolder;
             if (string.IsNullOrWhiteSpace(effectiveFolder))
             {
@@ -1079,6 +1114,7 @@ namespace LibKenjinx
                 effectiveFolder = existingFolder;
             }
 
+            // 3) ensure marker in the folder
             try
             {
                 if (!string.IsNullOrWhiteSpace(effectiveFolder))
@@ -1093,14 +1129,17 @@ namespace LibKenjinx
             }
             catch
             {
+                // ignore
             }
 
+            // 4) upsert (never overwrite with empty folder)
             string finalName   = string.IsNullOrWhiteSpace(titleName) ? (existing.Name ?? "") : titleName;
             string finalFolder = string.IsNullOrWhiteSpace(effectiveFolder) ? (existing.Folder ?? "") : effectiveFolder;
             string finalTs     = nowIso;
 
             byTitleId[titleIdLc] = (finalName, finalFolder, finalTs);
 
+            // 5) rewrite file (stable: sort by titleId)
             try
             {
                 IEnumerable<string> ordered = byTitleId
@@ -1114,9 +1153,13 @@ namespace LibKenjinx
             }
             catch
             {
+                // ignore write errors
             }
         }
 
+        /// <summary>
+        /// Scans save subfolders for a TITLEID.txt whose first line equals the titleId; returns folder name or null.
+        /// </summary>
         private static string? ResolveSaveFolderByMarker(string savesRoot, string titleIdLc)
         {
             try
@@ -1139,19 +1182,26 @@ namespace LibKenjinx
                     }
                     catch
                     {
+                        // ignore and continue
                     }
                 }
             }
             catch
             {
+                // ignore
             }
             return null;
         }
 
+
+        /// <summary>
+        /// Gets the (preferably American) title from the NACP, as a fallback the first non-empty one.
+        /// </summary>
         private static string? TryGetTitleName(ref LibHac.Ns.ApplicationControlProperty control)
         {
             try
             {
+                // Preferred: AmericanEnglish
                 int idx = (int)Language.AmericanEnglish;
                 if (control.Title.Length > idx)
                 {
@@ -1159,13 +1209,14 @@ namespace LibKenjinx
                     if (!string.IsNullOrWhiteSpace(s)) return s;
                 }
 
+                // Fallback: first non-empty localization
                 foreach (ref readonly ApplicationControlProperty.ApplicationTitle t in control.Title)
                 {
                     string s = t.NameString.ToString();
                     if (!string.IsNullOrWhiteSpace(s)) return s;
                 }
             }
-            catch { }
+            catch { /* ignore */ }
 
             return null;
         }
