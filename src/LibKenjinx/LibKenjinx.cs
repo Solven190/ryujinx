@@ -101,7 +101,6 @@ namespace LibKenjinx
 
         public static void InitializeAudio()
         {
-            Environment.SetEnvironmentVariable("SDL_AUDIODRIVER", "aaudio");
             AudioDriver = new SDL3HardwareDeviceDriver();
         }
 
