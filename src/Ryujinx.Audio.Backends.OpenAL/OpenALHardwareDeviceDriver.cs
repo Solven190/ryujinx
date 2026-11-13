@@ -80,7 +80,7 @@ namespace Ryujinx.Audio.Backends.OpenAL
                 channelCount = 2;
             }
 
-            // تعديل: إجبار التردد على 44100 لتجنب مسار FAST المعطوب
+            // Force 44100Hz to avoid Android OpenSL ES Deadlock
             sampleRate = 44100;
 
             if (sampleRate == 0)
