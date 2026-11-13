@@ -102,6 +102,28 @@ namespace LibKenjinx
 
         public static void InitializeAudio()
         {
+            try
+            {
+                string configDir = Path.Combine(AppDataManager.BaseDirPath, "OpenAL");
+                Directory.CreateDirectory(configDir);
+                string configPath = Path.Combine(configDir, "alsoft.conf");
+                
+                string configContent = 
+                    "[general]\n" +
+                    "period-size = 2048\n" +
+                    "periods = 3\n" +
+                    "\n" +
+                    "[opensl]\n" +
+                    "period-size = 2048\n" +
+                    "periods = 3\n";
+                
+                File.WriteAllText(configPath, configContent);
+                Environment.SetEnvironmentVariable("ALSOFT_CONF", configPath);
+            }
+            catch
+            {
+            }
+            
             AudioDriver = new OpenALHardwareDeviceDriver();
         }
 
