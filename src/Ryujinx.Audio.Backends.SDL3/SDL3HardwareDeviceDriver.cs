@@ -1,112 +1,68 @@
-using OpenTK.Audio.OpenAL;
 using Ryujinx.Audio.Common;
 using Ryujinx.Audio.Integration;
+using Ryujinx.Common.Logging;
 using Ryujinx.Memory;
+using Ryujinx.SDL3.Common;
 using System;
 using System.Collections.Concurrent;
-using System.Linq;
 using System.Threading;
 using static Ryujinx.Audio.Integration.IHardwareDeviceDriver;
+using SDL;
+using static SDL.SDL3;
+using System.Runtime.InteropServices;
 
-namespace Ryujinx.Audio.Backends.OpenAL
+
+namespace Ryujinx.Audio.Backends.SDL3
 {
-    public class OpenALHardwareDeviceDriver : IHardwareDeviceDriver
+
+    using unsafe SDL_AudioStreamCallbackPointer = delegate* unmanaged[Cdecl]<nint, SDL_AudioStream*, int, int, void>;
+
+    public sealed class SDL3HardwareDeviceDriver : IHardwareDeviceDriver
     {
-        private readonly ALDevice _device;
-        private readonly ALContext _context;
         private readonly ManualResetEvent _updateRequiredEvent;
         private readonly ManualResetEvent _pauseEvent;
-        private readonly ConcurrentDictionary<OpenALHardwareDeviceSession, byte> _sessions;
-        private bool _stillRunning;
-        private readonly Thread _updaterThread;
+        private readonly ConcurrentDictionary<SDL3HardwareDeviceSession, byte> _sessions;
 
-        private float _volume;
+        private readonly bool _supportSurroundConfiguration;
 
-        public float Volume
+        public float Volume { get; set; }
+
+        public unsafe SDL3HardwareDeviceDriver()
         {
-            get
-            {
-                return _volume;
-            }
-            set
-            {
-                _volume = value;
-
-                foreach (OpenALHardwareDeviceSession session in _sessions.Keys)
-                {
-                    session.UpdateMasterVolume(value);
-                }
-            }
-        }
-
-        public OpenALHardwareDeviceDriver()
-        {
-            _device = ALC.OpenDevice("");
-            _context = ALC.CreateContext(_device, new ALContextAttributes());
             _updateRequiredEvent = new ManualResetEvent(false);
             _pauseEvent = new ManualResetEvent(true);
-            _sessions = new ConcurrentDictionary<OpenALHardwareDeviceSession, byte>();
+            _sessions = new ConcurrentDictionary<SDL3HardwareDeviceSession, byte>();
 
-            _stillRunning = true;
-            _updaterThread = new Thread(Update)
+            SDL3Driver.Instance.Initialize();
+
+            SDL_AudioSpec spec;
+            if (!SDL_GetAudioDeviceFormat(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, null))
             {
-                Name = "HardwareDeviceDriver.OpenAL",
-            };
+                Logger.Error?.Print(LogClass.Application,
+                    $"SDL_GetDefaultAudioInfo failed with error \"{SDL_GetError()}\"");
 
-            _volume = 1f;
+                _supportSurroundConfiguration = true;
+            }
+            else
+            {
+                _supportSurroundConfiguration = spec.channels >= 6;
+            }
 
-            _updaterThread.Start();
+            Volume = 1f;
         }
 
-        public static bool IsSupported
+        public static bool IsSupported => IsSupportedInternal();
+
+        private unsafe static bool IsSupportedInternal()
         {
-            get
-            {
-                try
-                {
-                    return ALC.GetStringList(GetEnumerationStringList.DeviceSpecifier).Any();
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-        }
+            SDL_AudioStream* device = OpenStream(SampleFormat.PcmInt16, Constants.TargetSampleRate, Constants.ChannelCountMax, Constants.TargetSampleCount, null);
 
-        public IHardwareDeviceSession OpenDeviceSession(Direction direction, IVirtualMemoryManager memoryManager, SampleFormat sampleFormat, uint sampleRate, uint channelCount)
-        {
-            if (channelCount == 0)
+            if (device != null)
             {
-                channelCount = 2;
+                SDL_DestroyAudioStream(device);
             }
 
-            // تعديل: إجبار التردد على 44100 لتجنب مسار FAST المعطوب
-            sampleRate = 44100;
-
-            if (sampleRate == 0)
-            {
-                sampleRate = Constants.TargetSampleRate;
-            }
-
-            if (direction != Direction.Output)
-            {
-                throw new ArgumentException($"{direction}");
-            }
-            else if (!SupportsChannelCount(channelCount))
-            {
-                throw new ArgumentException($"{channelCount}");
-            }
-
-            OpenALHardwareDeviceSession session = new(this, memoryManager, sampleFormat, sampleRate, channelCount);
-
-            _sessions.TryAdd(session, 0);
-
-            return session;
-        }
-
-        internal bool Unregister(OpenALHardwareDeviceSession session)
-        {
-            return _sessions.TryRemove(session, out _);
+            return device != null;
         }
 
         public ManualResetEvent GetUpdateRequiredEvent()
@@ -119,30 +75,88 @@ namespace Ryujinx.Audio.Backends.OpenAL
             return _pauseEvent;
         }
 
-        private void Update()
+        public IHardwareDeviceSession OpenDeviceSession(Direction direction, IVirtualMemoryManager memoryManager, SampleFormat sampleFormat, uint sampleRate, uint channelCount)
         {
-            ALC.MakeContextCurrent(_context);
-
-            while (_stillRunning)
+            if (channelCount == 0)
             {
-                bool updateRequired = false;
-
-                foreach (OpenALHardwareDeviceSession session in _sessions.Keys)
-                {
-                    if (session.Update())
-                    {
-                        updateRequired = true;
-                    }
-                }
-
-                if (updateRequired)
-                {
-                    _updateRequiredEvent.Set();
-                }
-
-                // If it's not slept it will waste cycles.
-                Thread.Sleep(10);
+                channelCount = 2;
             }
+
+            if (sampleRate == 0)
+            {
+                sampleRate = Constants.TargetSampleRate;
+            }
+
+            if (direction != Direction.Output)
+            {
+                throw new NotImplementedException("Input direction is currently not implemented on SDL3 backend!");
+            }
+
+            SDL3HardwareDeviceSession session = new(this, memoryManager, sampleFormat, sampleRate, channelCount);
+
+            _sessions.TryAdd(session, 0);
+
+            return session;
+        }
+
+        internal bool Unregister(SDL3HardwareDeviceSession session)
+        {
+            return _sessions.TryRemove(session, out _);
+        }
+
+        private static SDL_AudioSpec GetSDL3Spec(SampleFormat requestedSampleFormat, uint requestedSampleRate, uint requestedChannelCount)
+        {
+            return new SDL_AudioSpec
+            {
+                channels = (byte)requestedChannelCount,
+                format = GetSDL3Format(requestedSampleFormat),
+                freq = (int)requestedSampleRate,
+            };
+        }
+
+        internal static SDL_AudioFormat GetSDL3Format(SampleFormat format)
+        {
+            return format switch
+            {
+                SampleFormat.PcmInt8 => SDL_AudioFormat.SDL_AUDIO_S8,
+                SampleFormat.PcmInt16 => SDL_AudioFormat.SDL_AUDIO_S16LE,
+                SampleFormat.PcmInt32 => SDL_AudioFormat.SDL_AUDIO_S32LE,
+                SampleFormat.PcmFloat => SDL_AudioFormat.SDL_AUDIO_F32LE,
+                _ => throw new ArgumentException($"Unsupported sample format {format}"),
+            };
+        }
+
+        internal unsafe static SDL_AudioStream* OpenStream(SampleFormat requestedSampleFormat, uint requestedSampleRate, uint requestedChannelCount, uint sampleCount, SDL3HardwareDeviceSession.SDL_AudioStreamCallback callback)
+        {
+            // تعديل: إجبار التردد على 44100 لتجنب مسار FAST المعطوب
+            requestedSampleRate = 44100;
+
+            SDL_AudioSpec desired = GetSDL3Spec(requestedSampleFormat, requestedSampleRate, requestedChannelCount);
+            SDL_AudioSpec got = desired;
+            SDL_AudioStreamCallbackPointer pCallback = callback != null ? (SDL_AudioStreamCallbackPointer)Marshal.GetFunctionPointerForDelegate(callback) : null;
+
+            // From SDL 3 and on, SDL requires us to set this as a hint
+            SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, $"{sampleCount}");
+            SDL_AudioStream* device = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &got, pCallback, 0);
+
+            if (device == null)
+            {
+                Logger.Error?.Print(LogClass.Application, $"SDL3 open audio device initialization failed with error \"{SDL_GetError()}\"");
+
+                return null;
+            }
+
+            bool isValid = got.format == desired.format && got.freq == desired.freq && got.channels == desired.channels;
+
+            if (!isValid)
+            {
+                Logger.Error?.Print(LogClass.Application, "SDL3 open audio device is not valid");
+                SDL_DestroyAudioStream(device);
+
+                return null;
+            }
+
+            return device;
         }
 
         public void Dispose()
@@ -155,15 +169,12 @@ namespace Ryujinx.Audio.Backends.OpenAL
         {
             if (disposing)
             {
-                _stillRunning = false;
-
-                foreach (OpenALHardwareDeviceSession session in _sessions.Keys)
+                foreach (SDL3HardwareDeviceSession session in _sessions.Keys)
                 {
                     session.Dispose();
                 }
 
-                ALC.DestroyContext(_context);
-                ALC.CloseDevice(_device);
+                SDL3Driver.Instance.Dispose();
 
                 _pauseEvent.Dispose();
             }
@@ -176,16 +187,22 @@ namespace Ryujinx.Audio.Backends.OpenAL
 
         public bool SupportsSampleFormat(SampleFormat sampleFormat)
         {
-            return true;
+            return sampleFormat != SampleFormat.PcmInt24;
         }
 
         public bool SupportsChannelCount(uint channelCount)
         {
-            return channelCount is 1 or 2 or 6;
+            if (channelCount == 6)
+            {
+                return _supportSurroundConfiguration;
+            }
+
+            return true;
         }
 
         public bool SupportsDirection(Direction direction)
         {
+            // TODO: add direction input when supported.
             return direction == Direction.Output;
         }
     }
