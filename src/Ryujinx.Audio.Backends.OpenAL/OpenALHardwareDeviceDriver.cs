@@ -10,8 +10,7 @@ using static Ryujinx.Audio.Integration.IHardwareDeviceDriver;
 
 namespace Ryujinx.Audio.Backends.OpenAL
 {
-    // ReSharper disable once InconsistentNaming
-    public sealed class OpenALHardwareDeviceDriver : IHardwareDeviceDriver
+    public class OpenALHardwareDeviceDriver : IHardwareDeviceDriver
     {
         private readonly ALDevice _device;
         private readonly ALContext _context;
@@ -80,6 +79,9 @@ namespace Ryujinx.Audio.Backends.OpenAL
             {
                 channelCount = 2;
             }
+
+            // تعديل: إجبار التردد على 44100 لتجنب مسار FAST المعطوب
+            sampleRate = 44100;
 
             if (sampleRate == 0)
             {
