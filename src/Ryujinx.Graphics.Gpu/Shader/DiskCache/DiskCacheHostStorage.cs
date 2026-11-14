@@ -820,3 +820,58 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <summary>
         /// Writes the shader program info into the cache.
         /// </summary>
+        /// <param name="dataWriter">Cache data writer</param>
+        /// <param name="info">Program info</param>
+        private static void WriteShaderProgramInfo(ref BinarySerializer dataWriter, ShaderProgramInfo info)
+        {
+            if (info == null)
+            {
+                return;
+            }
+
+            DataShaderInfo dataInfo = new()
+            {
+                CBuffersCount = (ushort)info.CBuffers.Count,
+                SBuffersCount = (ushort)info.SBuffers.Count,
+                TexturesCount = (ushort)info.Textures.Count,
+                ImagesCount = (ushort)info.Images.Count,
+                Stage = info.Stage,
+                GeometryVerticesPerPrimitive = (byte)info.GeometryVerticesPerPrimitive,
+                GeometryMaxOutputVertices = (ushort)info.GeometryMaxOutputVertices,
+                ThreadsPerInputPrimitive = (ushort)info.ThreadsPerInputPrimitive,
+                UsesFragCoord = info.UsesFragCoord,
+                UsesInstanceId = info.UsesInstanceId,
+                UsesDrawParameters = info.UsesDrawParameters,
+                UsesRtLayer = info.UsesRtLayer,
+                ClipDistancesWritten = info.ClipDistancesWritten,
+                FragmentOutputMap = info.FragmentOutputMap,
+            };
+
+            dataWriter.WriteWithMagicAndSize(ref dataInfo, ShdiMagic);
+
+            for (int index = 0; index < info.CBuffers.Count; index++)
+            {
+                BufferDescriptor entry = info.CBuffers[index];
+                dataWriter.WriteWithMagicAndSize(ref entry, BufdMagic);
+            }
+
+            for (int index = 0; index < info.SBuffers.Count; index++)
+            {
+                BufferDescriptor entry = info.SBuffers[index];
+                dataWriter.WriteWithMagicAndSize(ref entry, BufdMagic);
+            }
+
+            for (int index = 0; index < info.Textures.Count; index++)
+            {
+                TextureDescriptor entry = info.Textures[index];
+                dataWriter.WriteWithMagicAndSize(ref entry, TexdMagic);
+            }
+
+            for (int index = 0; index < info.Images.Count; index++)
+            {
+                TextureDescriptor entry = info.Images[index];
+                dataWriter.WriteWithMagicAndSize(ref entry, TexdMagic);
+            }
+        }
+    }
+}
