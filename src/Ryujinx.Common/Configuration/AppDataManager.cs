@@ -51,9 +51,9 @@ namespace Ryujinx.Common.Configuration
         {
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
-            if (appDataPath.Length == 0)
+            if (string.IsNullOrEmpty(appDataPath) || appDataPath == "/" || appDataPath == "/data" || !Directory.Exists(appDataPath))
             {
-                appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                appDataPath = AppDomain.CurrentDomain.BaseDirectory;
             }
 
             string userProfilePath = Path.Combine(appDataPath, DefaultBaseDir);
@@ -85,7 +85,16 @@ namespace Ryujinx.Common.Configuration
             {
                 if (!Directory.Exists(baseDirPath))
                 {
-                    Logger.Error?.Print(LogClass.Application, $"Custom Data Directory '{baseDirPath}' does not exist. Falling back to {Mode}...");
+                    try
+                    {
+                        Directory.CreateDirectory(baseDirPath);
+                        BaseDirPath = baseDirPath;
+                        Mode = LaunchMode.Custom;
+                    }
+                    catch
+                    {
+                        Logger.Error?.Print(LogClass.Application, $"Custom Data Directory '{baseDirPath}' could not be created. Falling back to {Mode}...");
+                    }
                 }
                 else
                 {
