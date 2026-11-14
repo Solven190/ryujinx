@@ -27,8 +27,7 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         private const string SharedTocFileName = "shared.toc";
         private const string SharedDataFileName = "shared.data";
 
-        // Removed readonly to allow disabling cache on permission error
-        private string _basePath;
+        private readonly string _basePath;
 
         public bool CacheEnabled => !string.IsNullOrEmpty(_basePath);
 
@@ -204,10 +203,8 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
                 {
                     Directory.CreateDirectory(basePath);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    // Fallback: disable cache if directory cannot be created (e.g. Android /data permission denied)
-                    Ryujinx.Common.Logging.Logger.Warning?.Print(Ryujinx.Common.Logging.LogClass.Gpu, $"Failed to create shader cache directory '{basePath}': {ex.Message}. Disabling disk cache.");
                     _basePath = null;
                 }
             }
@@ -219,8 +216,6 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <returns>Host programs count</returns>
         public int GetProgramCount()
         {
-            if (!CacheEnabled) return 0;
-
             string tocFilePath = Path.Combine(_basePath, SharedTocFileName);
 
             if (!File.Exists(tocFilePath))
@@ -285,8 +280,6 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <returns>True if a disk cache exists, false otherwise</returns>
         public bool CacheExists()
         {
-            if (!CacheEnabled) return false;
-
             string tocFilePath = Path.Combine(_basePath, SharedTocFileName);
             string dataFilePath = Path.Combine(_basePath, SharedDataFileName);
 
@@ -555,8 +548,6 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <returns>A collection of disk cache output streams</returns>
         public DiskCacheOutputStreams GetOutputStreams(GpuContext context)
         {
-            if (!CacheEnabled) return null;
-
             FileStream tocFileStream = DiskCacheCommon.OpenFile(_basePath, SharedTocFileName, writable: true);
             FileStream dataFileStream = DiskCacheCommon.OpenFile(_basePath, SharedDataFileName, writable: true);
 
@@ -575,8 +566,6 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <param name="streams">Output streams to use</param>
         public void AddShader(GpuContext context, CachedShaderProgram program, ReadOnlySpan<byte> hostCode, DiskCacheOutputStreams streams = null)
         {
-            if (!CacheEnabled) return;
-
             uint stagesBitMask = 0;
 
             for (int index = 0; index < program.Shaders.Length; index++)
@@ -655,7 +644,6 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// </summary>
         public void ClearGuestCache()
         {
-            if (!CacheEnabled) return;
             _guestStorage.ClearCache();
         }
 
@@ -665,8 +653,6 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <param name="context">GPU context</param>
         public void ClearSharedCache()
         {
-            if (!CacheEnabled) return;
-
             using FileStream tocFileStream = DiskCacheCommon.OpenFile(_basePath, SharedTocFileName, writable: true);
             using FileStream dataFileStream = DiskCacheCommon.OpenFile(_basePath, SharedDataFileName, writable: true);
 
@@ -680,8 +666,6 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <param name="context">GPU context</param>
         public void ClearHostCache(GpuContext context)
         {
-            if (!CacheEnabled) return;
-
             using FileStream tocFileStream = DiskCacheCommon.OpenFile(_basePath, GetHostTocFileName(context), writable: true);
             using FileStream dataFileStream = DiskCacheCommon.OpenFile(_basePath, GetHostDataFileName(context), writable: true);
 
@@ -836,58 +820,3 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <summary>
         /// Writes the shader program info into the cache.
         /// </summary>
-        /// <param name="dataWriter">Cache data writer</param>
-        /// <param name="info">Program info</param>
-        private static void WriteShaderProgramInfo(ref BinarySerializer dataWriter, ShaderProgramInfo info)
-        {
-            if (info == null)
-            {
-                return;
-            }
-
-            DataShaderInfo dataInfo = new()
-            {
-                CBuffersCount = (ushort)info.CBuffers.Count,
-                SBuffersCount = (ushort)info.SBuffers.Count,
-                TexturesCount = (ushort)info.Textures.Count,
-                ImagesCount = (ushort)info.Images.Count,
-                Stage = info.Stage,
-                GeometryVerticesPerPrimitive = (byte)info.GeometryVerticesPerPrimitive,
-                GeometryMaxOutputVertices = (ushort)info.GeometryMaxOutputVertices,
-                ThreadsPerInputPrimitive = (ushort)info.ThreadsPerInputPrimitive,
-                UsesFragCoord = info.UsesFragCoord,
-                UsesInstanceId = info.UsesInstanceId,
-                UsesDrawParameters = info.UsesDrawParameters,
-                UsesRtLayer = info.UsesRtLayer,
-                ClipDistancesWritten = info.ClipDistancesWritten,
-                FragmentOutputMap = info.FragmentOutputMap,
-            };
-
-            dataWriter.WriteWithMagicAndSize(ref dataInfo, ShdiMagic);
-
-            for (int index = 0; index < info.CBuffers.Count; index++)
-            {
-                BufferDescriptor entry = info.CBuffers[index];
-                dataWriter.WriteWithMagicAndSize(ref entry, BufdMagic);
-            }
-
-            for (int index = 0; index < info.SBuffers.Count; index++)
-            {
-                BufferDescriptor entry = info.SBuffers[index];
-                dataWriter.WriteWithMagicAndSize(ref entry, BufdMagic);
-            }
-
-            for (int index = 0; index < info.Textures.Count; index++)
-            {
-                TextureDescriptor entry = info.Textures[index];
-                dataWriter.WriteWithMagicAndSize(ref entry, TexdMagic);
-            }
-
-            for (int index = 0; index < info.Images.Count; index++)
-            {
-                TextureDescriptor entry = info.Images[index];
-                dataWriter.WriteWithMagicAndSize(ref entry, TexdMagic);
-            }
-        }
-    }
-}
