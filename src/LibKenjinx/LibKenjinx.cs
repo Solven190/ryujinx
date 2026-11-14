@@ -102,7 +102,7 @@ namespace LibKenjinx
 
         public static void InitializeAudio()
         {
-            AudioDriver = new OpenALHardwareDeviceDriver();
+            AudioDriver = new DummyHardwareDeviceDriver();
         }
 
         public static GameStats GetGameStats()
