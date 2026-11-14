@@ -117,9 +117,16 @@ namespace Ryujinx.Graphics.Gpu.Shader
         /// </summary>
         private static string GetDiskCachePath()
         {
-            return GraphicsConfig.EnableShaderCache && GraphicsConfig.TitleId != null
-                ? Path.Combine(AppDataManager.GamesDirPath, GraphicsConfig.TitleId.ToLower(), "cache", "shader")
-                : null;
+            if (!GraphicsConfig.EnableShaderCache)
+                return null;
+
+            string titleId = GraphicsConfig.TitleId;
+            if (string.IsNullOrEmpty(titleId))
+            {
+                titleId = "default_game";
+            }
+
+            return Path.Combine(AppDataManager.GamesDirPath, titleId.ToLower(), "cache", "shader");
         }
 
         /// <summary>
@@ -799,7 +806,7 @@ namespace Ryujinx.Graphics.Gpu.Shader
         /// </summary>
         /// <param name="memoryManager">Memory manager with the physical memory to read from</param>
         /// <param name="address">Physical address of the region to read</param>
-        /// <param name="size">Size in bytes of the data</param>
+        /// <param name="size">Size in bytes of the data to read</param>
         /// <returns>An array with the data at the specified memory location</returns>
         private static byte[] ReadArray(MemoryManager memoryManager, ulong address, int size)
         {
