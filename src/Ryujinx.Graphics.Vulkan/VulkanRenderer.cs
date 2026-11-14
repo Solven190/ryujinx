@@ -1102,7 +1102,7 @@ namespace Ryujinx.Graphics.Vulkan
 
         public unsafe bool RecreateSurface()
         {
-            if (!PresentAllowed)
+            if (!PresentAllowed || !_initialized || SurfaceLock == null)
             {
                 return false;
             }
@@ -1137,13 +1137,13 @@ namespace Ryujinx.Graphics.Vulkan
 
         public unsafe void ReleaseSurface()
         {
+            if (!_initialized || SurfaceLock == null)
+            {
+                return;
+            }
+
             lock (SurfaceLock)
             {
-                if (!_initialized)
-                {
-                    return;
-                }
-
                 try
                 {
                     ( _window as Window )?.SetSurfaceQueryAllowed(false);
