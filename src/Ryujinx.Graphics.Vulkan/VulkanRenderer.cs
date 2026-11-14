@@ -1,1270 +1,873 @@
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
+using Ryujinx.Common.Memory;
 using Ryujinx.Graphics.GAL;
+using Ryujinx.Graphics.Gpu.Engine.Threed;
+using Ryujinx.Graphics.Gpu.Engine.Types;
+using Ryujinx.Graphics.Gpu.Image;
+using Ryujinx.Graphics.Gpu.Memory;
+using Ryujinx.Graphics.Gpu.Shader.DiskCache;
 using Ryujinx.Graphics.Shader;
 using Ryujinx.Graphics.Shader.Translation;
-using Ryujinx.Graphics.Vulkan.MoltenVK;
-using Ryujinx.Graphics.Vulkan.Queries;
-using Silk.NET.Vulkan;
-using Silk.NET.Vulkan.Extensions.EXT;
-using Silk.NET.Vulkan.Extensions.KHR;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
+using System.IO;
 using System.Threading;
-using Format = Ryujinx.Graphics.GAL.Format;
-using PrimitiveTopology = Ryujinx.Graphics.GAL.PrimitiveTopology;
-using SamplerCreateInfo = Ryujinx.Graphics.GAL.SamplerCreateInfo;
 
-namespace Ryujinx.Graphics.Vulkan
+namespace Ryujinx.Graphics.Gpu.Shader
 {
-    public sealed class VulkanRenderer : IRenderer
+    /// <summary>
+    /// Memory cache of shader code.
+    /// </summary>
+    class ShaderCache : IDisposable
     {
-        private VulkanInstance _instance;
-        private SurfaceKHR _surface;
-        private VulkanPhysicalDevice _physicalDevice;
-        private Device _device;
-        private WindowBase _window;
+        /// <summary>
+        /// Default flags used on the shader translation process.
+        /// </summary>
+        public const TranslationFlags DefaultFlags = TranslationFlags.DebugMode;
 
-        private bool _initialized;
-
-        // JNI/Lifecycle Flag
-        internal volatile bool PresentAllowed = true;
-
-        public uint ProgramCount { get; set; } = 0;
-
-        internal FormatCapabilities FormatCapabilities { get; private set; }
-        internal HardwareCapabilities Capabilities;
-
-        internal Vk Api { get; private set; }
-        internal KhrSurface SurfaceApi { get; private set; }
-        internal KhrSwapchain SwapchainApi { get; private set; }
-        internal ExtConditionalRendering ConditionalRenderingApi { get; private set; }
-        internal ExtExtendedDynamicState ExtendedDynamicStateApi { get; private set; }
-        internal KhrPushDescriptor PushDescriptorApi { get; private set; }
-        internal ExtTransformFeedback TransformFeedbackApi { get; private set; }
-        internal KhrDrawIndirectCount DrawIndirectCountApi { get; private set; }
-        internal ExtAttachmentFeedbackLoopDynamicState DynamicFeedbackLoopApi { get; private set; }
-
-        internal uint QueueFamilyIndex { get; private set; }
-        internal Queue Queue { get; private set; }
-        internal Queue BackgroundQueue { get; private set; }
-        internal Lock BackgroundQueueLock { get; private set; }
-        internal Lock QueueLock { get; private set; }
-
-        // SurfaceLock to serialize Create/Destroy/Queries
-        internal Lock SurfaceLock { get; private set; }
-
-        internal MemoryAllocator MemoryAllocator { get; private set; }
-        internal HostMemoryAllocator HostMemoryAllocator { get; private set; }
-        internal CommandBufferPool CommandBufferPool { get; private set; }
-        internal PipelineLayoutCache PipelineLayoutCache { get; private set; }
-        internal BackgroundResources BackgroundResources { get; private set; }
-        internal Action<Action> InterruptAction { get; private set; }
-        internal SyncManager SyncManager { get; private set; }
-
-        internal BufferManager BufferManager { get; private set; }
-
-        internal HashSet<ShaderCollection> Shaders { get; }
-        internal HashSet<ITexture> Textures { get; }
-        internal HashSet<SamplerHolder> Samplers { get; }
-
-        private VulkanDebugMessenger _debugMessenger;
-        private Counters _counters;
-
-        private PipelineFull _pipeline;
-
-        internal HelperShader HelperShader { get; private set; }
-        internal PipelineFull PipelineInternal => _pipeline;
-
-        internal BarrierBatch Barriers { get; private set; }
-
-        public IPipeline Pipeline => _pipeline;
-
-        public IWindow Window => _window;
-
-        public SurfaceTransformFlagsKHR CurrentTransform => _window.CurrentTransform;
-
-        private readonly Func<Instance, Vk, SurfaceKHR> _getSurface;
-        private readonly Func<string[]> _getRequiredExtensions;
-        private readonly string _preferredGpuId;
-
-        private int[] _pdReservedBindings;
-        private readonly static int[] _pdReservedBindingsNvn = [3, 18, 21, 36, 30];
-        private readonly static int[] _pdReservedBindingsOgl = [17, 18, 34, 35, 36];
-
-        internal Vendor Vendor { get; private set; }
-        internal bool IsAmdWindows { get; private set; }
-        internal bool IsIntelWindows { get; private set; }
-        internal bool IsAmdGcn { get; private set; }
-        internal bool IsAmdRdna3 { get; private set; }
-        internal bool IsAdreno6xx { get; private set; }
-        internal bool IsAdreno7xx { get; private set; }
-        internal bool IsAdreno8xx { get; private set; }
-        internal bool IsFeedbackLoopDevice { get; private set; }
-        internal bool IsNvidiaPreTuring { get; private set; }
-        internal bool IsIntelArc { get; private set; }
-        internal bool IsQualcommProprietary { get; private set; }
-        internal bool IsTurnip { get; private set; }
-        internal bool IsMoltenVk { get; private set; }
-        internal bool IsTBDR { get; private set; }
-        internal bool IsSharedMemory { get; private set; }
-
-        public string GpuVendor { get; private set; }
-        public string GpuDriver { get; private set; }
-        public string GpuRenderer { get; private set; }
-        public string GpuVersion { get; private set; }
-        public string GpuDriverVersion { get; private set; }
-
-        public bool PreferThreading => true;
-
-        public event EventHandler<ScreenCaptureImageInfo> ScreenCaptured;
-
-        public VulkanRenderer(Vk api, Func<Instance, Vk, SurfaceKHR> surfaceFunc, Func<string[]> requiredExtensionsFunc, string preferredGpuId)
+        private readonly struct TranslatedShader
         {
-            _getSurface = surfaceFunc;
-            _getRequiredExtensions = requiredExtensionsFunc;
-            _preferredGpuId = preferredGpuId;
-            Api = api;
-            Shaders = [];
-            Textures = [];
-            Samplers = [];
+            public readonly CachedShaderStage Shader;
+            public readonly ShaderProgram Program;
 
-            if (OperatingSystem.IsMacOS())
+            public TranslatedShader(CachedShaderStage shader, ShaderProgram program)
             {
-                MVKInitialization.Initialize();
-
-                // Any device running on MacOS is using MoltenVK, even Intel and AMD vendors.
-                IsMoltenVk = true;
+                Shader = shader;
+                Program = program;
             }
         }
 
-        private unsafe void LoadFeatures(uint maxQueueCount, uint queueFamilyIndex)
+        private readonly struct TranslatedShaderVertexPair
         {
-            FormatCapabilities = new FormatCapabilities(Api, _physicalDevice.PhysicalDevice);
+            public readonly CachedShaderStage VertexA;
+            public readonly CachedShaderStage VertexB;
+            public readonly ShaderProgram Program;
 
-            if (Api.TryGetDeviceExtension(_instance.Instance, _device, out ExtConditionalRendering conditionalRenderingApi))
+            public TranslatedShaderVertexPair(CachedShaderStage vertexA, CachedShaderStage vertexB, ShaderProgram program)
             {
-                ConditionalRenderingApi = conditionalRenderingApi;
+                VertexA = vertexA;
+                VertexB = vertexB;
+                Program = program;
             }
-
-            if (Api.TryGetDeviceExtension(_instance.Instance, _device, out ExtExtendedDynamicState extendedDynamicStateApi))
-            {
-                ExtendedDynamicStateApi = extendedDynamicStateApi;
-            }
-
-            if (Api.TryGetDeviceExtension(_instance.Instance, _device, out KhrPushDescriptor pushDescriptorApi))
-            {
-                PushDescriptorApi = pushDescriptorApi;
-            }
-
-            if (Api.TryGetDeviceExtension(_instance.Instance, _device, out ExtTransformFeedback transformFeedbackApi))
-            {
-                TransformFeedbackApi = transformFeedbackApi;
-            }
-
-            if (Api.TryGetDeviceExtension(_instance.Instance, _device, out KhrDrawIndirectCount drawIndirectCountApi))
-            {
-                DrawIndirectCountApi = drawIndirectCountApi;
-            }
-
-            if (Api.TryGetDeviceExtension(_instance.Instance, _device, out ExtAttachmentFeedbackLoopDynamicState dynamicFeedbackLoopApi))
-            {
-                DynamicFeedbackLoopApi = dynamicFeedbackLoopApi;
-            }
-
-            if (maxQueueCount >= 2)
-            {
-                Api.GetDeviceQueue(_device, queueFamilyIndex, 1, out Queue backgroundQueue);
-                BackgroundQueue = backgroundQueue;
-                BackgroundQueueLock = new();
-            }
-
-            PhysicalDeviceProperties2 properties2 = new()
-            {
-                SType = StructureType.PhysicalDeviceProperties2,
-            };
-
-            PhysicalDeviceIDProperties propertiesId = new()
-            {
-                SType = StructureType.PhysicalDeviceIDProperties,
-                PNext = properties2.PNext,
-            };
-
-            properties2.PNext = &propertiesId;
-
-            PhysicalDeviceSubgroupProperties propertiesSubgroup = new()
-            {
-                SType = StructureType.PhysicalDeviceSubgroupProperties,
-                PNext = properties2.PNext,
-            };
-
-            properties2.PNext = &propertiesSubgroup;
-
-            PhysicalDeviceBlendOperationAdvancedPropertiesEXT propertiesBlendOperationAdvanced = new()
-            {
-                SType = StructureType.PhysicalDeviceBlendOperationAdvancedPropertiesExt,
-            };
-
-            bool supportsBlendOperationAdvanced = _physicalDevice.IsDeviceExtensionPresent("VK_EXT_blend_operation_advanced");
-
-            if (supportsBlendOperationAdvanced)
-            {
-                propertiesBlendOperationAdvanced.PNext = properties2.PNext;
-                properties2.PNext = &propertiesBlendOperationAdvanced;
-            }
-
-            bool supportsTransformFeedback = _physicalDevice.IsDeviceExtensionPresent(ExtTransformFeedback.ExtensionName);
-
-            PhysicalDeviceTransformFeedbackPropertiesEXT propertiesTransformFeedback = new()
-            {
-                SType = StructureType.PhysicalDeviceTransformFeedbackPropertiesExt,
-            };
-
-            if (supportsTransformFeedback)
-            {
-                propertiesTransformFeedback.PNext = properties2.PNext;
-                properties2.PNext = &propertiesTransformFeedback;
-            }
-
-            PhysicalDevicePortabilitySubsetPropertiesKHR propertiesPortabilitySubset = new()
-            {
-                SType = StructureType.PhysicalDevicePortabilitySubsetPropertiesKhr,
-            };
-
-            bool supportsPushDescriptors = _physicalDevice.IsDeviceExtensionPresent(KhrPushDescriptor.ExtensionName);
-
-            PhysicalDevicePushDescriptorPropertiesKHR propertiesPushDescriptor = new()
-            {
-                SType = StructureType.PhysicalDevicePushDescriptorPropertiesKhr
-            };
-
-            if (supportsPushDescriptors)
-            {
-                propertiesPushDescriptor.PNext = properties2.PNext;
-                properties2.PNext = &propertiesPushDescriptor;
-            }
-
-            PhysicalDeviceFeatures2 features2 = new()
-            {
-                SType = StructureType.PhysicalDeviceFeatures2,
-            };
-
-            PhysicalDevicePrimitiveTopologyListRestartFeaturesEXT featuresPrimitiveTopologyListRestart = new()
-            {
-                SType = StructureType.PhysicalDevicePrimitiveTopologyListRestartFeaturesExt,
-            };
-
-            PhysicalDeviceRobustness2FeaturesEXT featuresRobustness2 = new()
-            {
-                SType = StructureType.PhysicalDeviceRobustness2FeaturesExt,
-            };
-
-            PhysicalDeviceShaderFloat16Int8FeaturesKHR featuresShaderInt8 = new()
-            {
-                SType = StructureType.PhysicalDeviceShaderFloat16Int8Features,
-            };
-
-            PhysicalDeviceCustomBorderColorFeaturesEXT featuresCustomBorderColor = new()
-            {
-                SType = StructureType.PhysicalDeviceCustomBorderColorFeaturesExt,
-            };
-
-            PhysicalDeviceDepthClipControlFeaturesEXT featuresDepthClipControl = new()
-            {
-                SType = StructureType.PhysicalDeviceDepthClipControlFeaturesExt,
-            };
-
-            PhysicalDeviceAttachmentFeedbackLoopLayoutFeaturesEXT featuresAttachmentFeedbackLoop = new()
-            {
-                SType = StructureType.PhysicalDeviceAttachmentFeedbackLoopLayoutFeaturesExt,
-            };
-
-            PhysicalDeviceAttachmentFeedbackLoopDynamicStateFeaturesEXT featuresDynamicAttachmentFeedbackLoop = new()
-            {
-                SType = StructureType.PhysicalDeviceAttachmentFeedbackLoopDynamicStateFeaturesExt,
-            };
-
-            PhysicalDevicePortabilitySubsetFeaturesKHR featuresPortabilitySubset = new()
-            {
-                SType = StructureType.PhysicalDevicePortabilitySubsetFeaturesKhr,
-            };
-
-            if (_physicalDevice.IsDeviceExtensionPresent("VK_EXT_primitive_topology_list_restart"))
-            {
-                features2.PNext = &featuresPrimitiveTopologyListRestart;
-            }
-
-            if (_physicalDevice.IsDeviceExtensionPresent("VK_EXT_robustness2"))
-            {
-                featuresRobustness2.PNext = features2.PNext;
-                features2.PNext = &featuresRobustness2;
-            }
-
-            if (_physicalDevice.IsDeviceExtensionPresent("VK_KHR_shader_float16_int8"))
-            {
-                featuresShaderInt8.PNext = features2.PNext;
-                features2.PNext = &featuresShaderInt8;
-            }
-
-            if (_physicalDevice.IsDeviceExtensionPresent("VK_EXT_custom_border_color"))
-            {
-                featuresCustomBorderColor.PNext = features2.PNext;
-                features2.PNext = &featuresCustomBorderColor;
-            }
-
-            bool supportsDepthClipControl = _physicalDevice.IsDeviceExtensionPresent("VK_EXT_depth_clip_control");
-
-            if (supportsDepthClipControl)
-            {
-                featuresDepthClipControl.PNext = features2.PNext;
-                features2.PNext = &featuresDepthClipControl;
-            }
-
-            bool supportsAttachmentFeedbackLoop = _physicalDevice.IsDeviceExtensionPresent("VK_EXT_attachment_feedback_loop_layout");
-
-            if (supportsAttachmentFeedbackLoop)
-            {
-                featuresAttachmentFeedbackLoop.PNext = features2.PNext;
-                features2.PNext = &featuresAttachmentFeedbackLoop;
-            }
-
-            bool supportsDynamicAttachmentFeedbackLoop = _physicalDevice.IsDeviceExtensionPresent("VK_EXT_attachment_feedback_loop_dynamic_state");
-
-            if (supportsDynamicAttachmentFeedbackLoop)
-            {
-                featuresDynamicAttachmentFeedbackLoop.PNext = features2.PNext;
-                features2.PNext = &featuresDynamicAttachmentFeedbackLoop;
-            }
-
-            bool usePortability = _physicalDevice.IsDeviceExtensionPresent("VK_KHR_portability_subset");
-
-            if (usePortability)
-            {
-                propertiesPortabilitySubset.PNext = properties2.PNext;
-                properties2.PNext = &propertiesPortabilitySubset;
-
-                featuresPortabilitySubset.PNext = features2.PNext;
-                features2.PNext = &featuresPortabilitySubset;
-            }
-
-            Api.GetPhysicalDeviceProperties2(_physicalDevice.PhysicalDevice, &properties2);
-            Api.GetPhysicalDeviceFeatures2(_physicalDevice.PhysicalDevice, &features2);
-
-            PortabilitySubsetFlags portabilityFlags = PortabilitySubsetFlags.None;
-            uint vertexBufferAlignment = 1;
-
-            if (usePortability)
-            {
-                vertexBufferAlignment = propertiesPortabilitySubset.MinVertexInputBindingStrideAlignment;
-
-                portabilityFlags |= featuresPortabilitySubset.TriangleFans ? 0 : PortabilitySubsetFlags.NoTriangleFans;
-                portabilityFlags |= featuresPortabilitySubset.PointPolygons ? 0 : PortabilitySubsetFlags.NoPointMode;
-                portabilityFlags |= featuresPortabilitySubset.ImageView2DOn3DImage ? 0 : PortabilitySubsetFlags.No3DImageView;
-                portabilityFlags |= featuresPortabilitySubset.SamplerMipLodBias ? 0 : PortabilitySubsetFlags.NoLodBias;
-            }
-
-            bool supportsCustomBorderColor = _physicalDevice.IsDeviceExtensionPresent("VK_EXT_custom_border_color") &&
-                                             featuresCustomBorderColor.CustomBorderColors &&
-                                             featuresCustomBorderColor.CustomBorderColorWithoutFormat;
-
-            ref PhysicalDeviceProperties properties = ref properties2.Properties;
-
-            bool hasDriverProperties = _physicalDevice.TryGetPhysicalDeviceDriverPropertiesKHR(Api, out PhysicalDeviceDriverPropertiesKHR driverProperties);
-
-            Vendor = VendorUtils.FromId(properties.VendorID);
-
-            IsAmdWindows = Vendor == Vendor.Amd && OperatingSystem.IsWindows();
-            IsIntelWindows = Vendor == Vendor.Intel && OperatingSystem.IsWindows();
-            IsTBDR =
-                Vendor is Vendor.Apple or Vendor.Qualcomm or Vendor.ARM or Vendor.Broadcom or Vendor.ImgTec;
-
-            GpuVendor = VendorUtils.GetNameFromId(properties.VendorID);
-            GpuDriver = hasDriverProperties && !OperatingSystem.IsMacOS() ?
-                VendorUtils.GetFriendlyDriverName(driverProperties.DriverID) : GpuVendor; // Fallback to vendor name if driver is unavailable or on MacOS where vendor is preferred.
-            GpuDriverVersion = TryGetIntelWindowsDriverVersionFromUuid(ref propertiesId, out string intelDriverVersion) ? intelDriverVersion :
-                hasDriverProperties ?
-                GetDriverInfo(ref driverProperties) ?? ParseDriverVersion(ref properties) :
-                ParseDriverVersion(ref properties);
-
-            fixed (byte* deviceName = properties.DeviceName)
-            {
-                GpuRenderer = Marshal.PtrToStringAnsi((nint)deviceName);
-            }
-
-            GpuVersion = $"Vulkan v{ParseStandardVulkanVersion(properties.ApiVersion)}";
-
-            IsAmdGcn = !IsMoltenVk && Vendor == Vendor.Amd && VendorUtils.AmdGcnRegex().IsMatch(GpuRenderer);
-
-            IsAmdRdna3 = Vendor == Vendor.Amd && (VendorUtils.AmdRdna3Regex().IsMatch(GpuRenderer)
-                                                  // ROG Ally (X) Device IDs
-                                                  || properties.DeviceID is 0x15BF or 0x15C8 or 0x150E);
-
-            IsAdreno6xx = Vendor == Vendor.Qualcomm && VendorUtils.Adreno6xxRegex().IsMatch(GpuRenderer);
-            IsAdreno7xx = Vendor == Vendor.Qualcomm && VendorUtils.Adreno7xxRegex().IsMatch(GpuRenderer);
-            IsAdreno8xx = Vendor == Vendor.Qualcomm && VendorUtils.Adreno8xxRegex().IsMatch(GpuRenderer);
-
-            IsFeedbackLoopDevice = IsAmdRdna3 || IsAdreno6xx || IsAdreno7xx;
-
-            IsTurnip = GpuRenderer.StartsWith("Turnip");
-
-            if (Vendor == Vendor.Nvidia)
-            {
-                Match match = VendorUtils.NvidiaConsumerClassRegex().Match(GpuRenderer);
-
-                if (match != null && int.TryParse(match.Groups[2].Value, out int gpuNumber))
-                {
-                    IsNvidiaPreTuring = gpuNumber < 2000;
-                }
-                else if (GpuRenderer.Contains("TITAN") && !GpuRenderer.Contains("RTX"))
-                {
-                    IsNvidiaPreTuring = true;
-                }
-            }
-            else if (Vendor == Vendor.Intel)
-            {
-                IsIntelArc = GpuRenderer.StartsWith("Intel(R) Arc(TM)");
-            }
-
-            IsQualcommProprietary = hasDriverProperties && driverProperties.DriverID == DriverId.QualcommProprietary;
-
-            ulong minResourceAlignment = Math.Max(
-                Math.Max(
-                    properties.Limits.MinStorageBufferOffsetAlignment,
-                    properties.Limits.MinUniformBufferOffsetAlignment),
-                properties.Limits.MinTexelBufferOffsetAlignment
-            );
-
-            SampleCountFlags supportedSampleCounts =
-                properties.Limits.FramebufferColorSampleCounts &
-                properties.Limits.FramebufferDepthSampleCounts &
-                properties.Limits.FramebufferStencilSampleCounts;
-
-            Capabilities = new HardwareCapabilities(
-                _physicalDevice.IsDeviceExtensionPresent("VK_EXT_index_type_uint8") && !IsAdreno8xx,
-                supportsCustomBorderColor && !IsAdreno8xx,
-                supportsBlendOperationAdvanced,
-                propertiesBlendOperationAdvanced.AdvancedBlendCorrelatedOverlap,
-                propertiesBlendOperationAdvanced.AdvancedBlendNonPremultipliedSrcColor,
-                propertiesBlendOperationAdvanced.AdvancedBlendNonPremultipliedDstColor,
-                _physicalDevice.IsDeviceExtensionPresent(KhrDrawIndirectCount.ExtensionName),
-                _physicalDevice.IsDeviceExtensionPresent("VK_EXT_fragment_shader_interlock") && !IsAdreno8xx,
-                _physicalDevice.IsDeviceExtensionPresent("VK_NV_geometry_shader_passthrough") && !IsAdreno8xx,
-                features2.Features.ShaderFloat64,
-                featuresShaderInt8.ShaderInt8 && !IsAdreno8xx,
-                _physicalDevice.IsDeviceExtensionPresent("VK_EXT_shader_stencil_export") && !IsAdreno8xx,
-                features2.Features.ShaderStorageImageMultisample,
-                _physicalDevice.IsDeviceExtensionPresent(ExtConditionalRendering.ExtensionName),
-                _physicalDevice.IsDeviceExtensionPresent(ExtExtendedDynamicState.ExtensionName) && !IsAdreno8xx,
-                features2.Features.MultiViewport && !(IsMoltenVk && Vendor == Vendor.Amd), // Workaround for AMD on MoltenVK issue
-                (featuresRobustness2.NullDescriptor || IsMoltenVk) && !IsAdreno8xx,
-                supportsPushDescriptors && !IsMoltenVk,
-                propertiesPushDescriptor.MaxPushDescriptors,
-                featuresPrimitiveTopologyListRestart.PrimitiveTopologyListRestart && !IsAdreno8xx,
-                featuresPrimitiveTopologyListRestart.PrimitiveTopologyPatchListRestart && !IsAdreno8xx,
-                supportsTransformFeedback && !IsAdreno8xx,
-                propertiesTransformFeedback.TransformFeedbackQueries,
-                features2.Features.OcclusionQueryPrecise,
-                _physicalDevice.PhysicalDeviceFeatures.PipelineStatisticsQuery,
-                _physicalDevice.PhysicalDeviceFeatures.GeometryShader && !IsAdreno8xx,
-                _physicalDevice.PhysicalDeviceFeatures.TessellationShader && !IsAdreno8xx,
-                _physicalDevice.IsDeviceExtensionPresent("VK_NV_viewport_array2"),
-                _physicalDevice.IsDeviceExtensionPresent(ExtExternalMemoryHost.ExtensionName) && !IsAdreno8xx,
-                supportsDepthClipControl && featuresDepthClipControl.DepthClipControl,
-                supportsAttachmentFeedbackLoop && featuresAttachmentFeedbackLoop.AttachmentFeedbackLoopLayout && IsFeedbackLoopDevice,
-                supportsDynamicAttachmentFeedbackLoop && featuresDynamicAttachmentFeedbackLoop.AttachmentFeedbackLoopDynamicState && IsFeedbackLoopDevice,
-                propertiesSubgroup.SubgroupSize,
-                supportedSampleCounts,
-                portabilityFlags,
-                vertexBufferAlignment,
-                properties.Limits.SubTexelPrecisionBits,
-                minResourceAlignment,
-                _physicalDevice.PhysicalDeviceProperties.Limits.MinTexelBufferOffsetAlignment);
-
-            IsSharedMemory = MemoryAllocator.IsDeviceMemoryShared(_physicalDevice);
-
-            MemoryAllocator = new MemoryAllocator(Api, _physicalDevice, _device);
-
-            Api.TryGetDeviceExtension(_instance.Instance, _device, out ExtExternalMemoryHost hostMemoryApi);
-            HostMemoryAllocator = new HostMemoryAllocator(MemoryAllocator, Api, hostMemoryApi, _device);
-
-            CommandBufferPool = new CommandBufferPool(Api, _device, Queue, QueueLock, queueFamilyIndex, IsQualcommProprietary, IsTurnip);
-
-            PipelineLayoutCache = new PipelineLayoutCache();
-
-            BackgroundResources = new BackgroundResources(this, _device);
-
-            BufferManager = new BufferManager(this, _device);
-
-            SyncManager = new SyncManager(this, _device);
-            _pipeline = new PipelineFull(this, _device);
-            _pipeline.Initialize();
-
-            HelperShader = new HelperShader(this, _device);
-
-            Barriers = new BarrierBatch(this);
-
-            _counters = new Counters(this, _device, _pipeline);
         }
 
-        private void SetupContext(GraphicsDebugLevel logLevel)
-        {
-            _instance = VulkanInitialization.CreateInstance(Api, logLevel, _getRequiredExtensions());
-            _debugMessenger = new VulkanDebugMessenger(Api, _instance.Instance, logLevel);
+        private readonly GpuContext _context;
 
-            if (Api.TryGetInstanceExtension(_instance.Instance, out KhrSurface surfaceApi))
+        private readonly ShaderDumper _dumper;
+
+        private readonly Dictionary<ulong, CachedShaderProgram> _cpPrograms;
+        private readonly Dictionary<ShaderAddresses, CachedShaderProgram> _gpPrograms;
+
+        private readonly struct ProgramToSave
+        {
+            public readonly CachedShaderProgram CachedProgram;
+            public readonly IProgram HostProgram;
+            public readonly byte[] BinaryCode;
+
+            public ProgramToSave(CachedShaderProgram cachedProgram, IProgram hostProgram, byte[] binaryCode)
             {
-                SurfaceApi = surfaceApi;
+                CachedProgram = cachedProgram;
+                HostProgram = hostProgram;
+                BinaryCode = binaryCode;
             }
+        }
 
-            _surface = _getSurface(_instance.Instance, Api);
-            _physicalDevice = VulkanInitialization.FindSuitablePhysicalDevice(Api, _instance, _surface, _preferredGpuId);
+        private readonly Queue<ProgramToSave> _programsToSaveQueue;
 
-            uint queueFamilyIndex = VulkanInitialization.FindSuitableQueueFamily(Api, _physicalDevice, _surface, out uint maxQueueCount);
+        private readonly ComputeShaderCacheHashTable _computeShaderCache;
+        private readonly ShaderCacheHashTable _graphicsShaderCache;
+        private readonly DiskCacheHostStorage _diskCacheHostStorage;
+        private readonly BackgroundDiskCacheWriter _cacheWriter;
 
-            _device = VulkanInitialization.CreateDevice(Api, _physicalDevice, queueFamilyIndex, maxQueueCount);
+        /// <summary>
+        /// Event for signalling shader cache loading progress.
+        /// </summary>
+        public event Action<ShaderCacheState, int, int> ShaderCacheStateChanged;
 
-            if (Api.TryGetDeviceExtension(_instance.Instance, _device, out KhrSwapchain swapchainApi))
+        /// <summary>
+        /// Creates a new instance of the shader cache.
+        /// </summary>
+        /// <param name="context">GPU context that the shader cache belongs to</param>
+        public ShaderCache(GpuContext context)
+        {
+            _context = context;
+
+            _dumper = new ShaderDumper();
+
+            _cpPrograms = new Dictionary<ulong, CachedShaderProgram>();
+            _gpPrograms = new Dictionary<ShaderAddresses, CachedShaderProgram>();
+
+            _programsToSaveQueue = new Queue<ProgramToSave>();
+
+            string diskCacheTitleId = GetDiskCachePath();
+
+            _computeShaderCache = new ComputeShaderCacheHashTable();
+            _graphicsShaderCache = new ShaderCacheHashTable();
+            _diskCacheHostStorage = new DiskCacheHostStorage(diskCacheTitleId);
+
+            if (_diskCacheHostStorage.CacheEnabled)
             {
-                SwapchainApi = swapchainApi;
+                _cacheWriter = new BackgroundDiskCacheWriter(context, _diskCacheHostStorage);
             }
-
-            Api.GetDeviceQueue(_device, queueFamilyIndex, 0, out Queue queue);
-            Queue = queue;
-            QueueLock = new();
-
-            // Init Locks
-            SurfaceLock = new();
-            if (maxQueueCount >= 2)
-            {
-                Api.GetDeviceQueue(_device, queueFamilyIndex, 1, out Queue backgroundQueue);
-                BackgroundQueue = backgroundQueue;
-                BackgroundQueueLock = new();
-            }
-
-            LoadFeatures(maxQueueCount, queueFamilyIndex);
-
-            QueueFamilyIndex = queueFamilyIndex;
-
-            _window = new Window(this, _surface, _physicalDevice.PhysicalDevice, _device);
-
-            _initialized = true;
-        }
-
-        internal int[] GetPushDescriptorReservedBindings(bool isOgl)
-        {
-            // The first call of this method determines what push descriptor layout is used for all shaders on this renderer.
-            // This is chosen to minimize shaders that can't fit their uniforms on the device's max number of push descriptors.
-            if (_pdReservedBindings == null)
-            {
-                if (Capabilities.MaxPushDescriptors <= Constants.MaxUniformBuffersPerStage * 2)
-                {
-                    _pdReservedBindings = isOgl ? _pdReservedBindingsOgl : _pdReservedBindingsNvn;
-                }
-                else
-                {
-                    _pdReservedBindings = [];
-                }
-            }
-
-            return _pdReservedBindings;
-        }
-
-        public BufferHandle CreateBuffer(int size, BufferAccess access)
-        {
-            return BufferManager.CreateWithHandle(this, size, access.HasFlag(BufferAccess.SparseCompatible), access.Convert(), access.HasFlag(BufferAccess.Stream));
-        }
-
-        public BufferHandle CreateBuffer(nint pointer, int size)
-        {
-            return BufferManager.CreateHostImported(this, pointer, size);
-        }
-
-        public BufferHandle CreateBufferSparse(ReadOnlySpan<BufferRange> storageBuffers)
-        {
-            return BufferManager.CreateSparse(this, storageBuffers);
-        }
-
-        public IImageArray CreateImageArray(int size, bool isBuffer)
-        {
-            return new ImageArray(this, size, isBuffer);
-        }
-
-        public IProgram CreateProgram(ShaderSource[] sources, ShaderInfo info)
-        {
-            ProgramCount++;
-
-            bool isCompute = sources.Length == 1 && sources[0].Stage == ShaderStage.Compute;
-
-            if (info.State.HasValue || isCompute)
-            {
-                return new ShaderCollection(this, _device, sources, info.ResourceLayout, info.State ?? default, info.FromCache);
-            }
-
-            return new ShaderCollection(this, _device, sources, info.ResourceLayout);
-        }
-
-        internal ShaderCollection CreateProgramWithMinimalLayout(ShaderSource[] sources, ResourceLayout resourceLayout, SpecDescription[] specDescription = null)
-        {
-            return new ShaderCollection(this, _device, sources, resourceLayout, specDescription, isMinimal: true);
-        }
-
-        public ISampler CreateSampler(SamplerCreateInfo info)
-        {
-            return new SamplerHolder(this, _device, info);
-        }
-
-        public ITexture CreateTexture(TextureCreateInfo info)
-        {
-            if (info.Target == Target.TextureBuffer)
-            {
-                return new TextureBuffer(this, info);
-            }
-
-            return CreateTextureView(info);
-        }
-
-        public ITextureArray CreateTextureArray(int size, bool isBuffer)
-        {
-            return new TextureArray(this, size, isBuffer);
-        }
-
-        internal TextureView CreateTextureView(TextureCreateInfo info)
-        {
-            // This should be disposed when all views are destroyed.
-            TextureStorage storage = CreateTextureStorage(info);
-            return storage.CreateView(info, 0, 0);
-        }
-
-        internal TextureStorage CreateTextureStorage(TextureCreateInfo info)
-        {
-            return new TextureStorage(this, _device, info);
-        }
-
-        public void DeleteBuffer(BufferHandle buffer)
-        {
-            BufferManager.Delete(buffer);
-        }
-
-        internal void FlushAllCommands()
-        {
-            _pipeline?.FlushCommandsImpl();
-        }
-
-        internal void RegisterFlush()
-        {
-            SyncManager.RegisterFlush();
-
-            // Periodically free unused regions of the staging buffer to avoid doing it all at once.
-            BufferManager.StagingBuffer.FreeCompleted();
-        }
-
-        public PinnedSpan<byte> GetBufferData(BufferHandle buffer, int offset, int size)
-        {
-            return BufferManager.GetData(buffer, offset, size);
-        }
-
-        public unsafe Capabilities GetCapabilities()
-        {
-            FormatFeatureFlags compressedFormatFeatureFlags =
-                FormatFeatureFlags.SampledImageBit |
-                FormatFeatureFlags.SampledImageFilterLinearBit |
-                FormatFeatureFlags.BlitSrcBit |
-                FormatFeatureFlags.TransferSrcBit |
-                FormatFeatureFlags.TransferDstBit;
-
-            bool supportsBc123CompressionFormat = FormatCapabilities.OptimalFormatsSupport(compressedFormatFeatureFlags,
-                Format.Bc1RgbaSrgb,
-                Format.Bc1RgbaUnorm,
-                Format.Bc2Srgb,
-                Format.Bc2Unorm,
-                Format.Bc3Srgb,
-                Format.Bc3Unorm);
-
-            bool supportsBc45CompressionFormat = FormatCapabilities.OptimalFormatsSupport(compressedFormatFeatureFlags,
-                Format.Bc4Snorm,
-                Format.Bc4Unorm,
-                Format.Bc5Snorm,
-                Format.Bc5Unorm);
-
-            bool supportsBc67CompressionFormat = FormatCapabilities.OptimalFormatsSupport(compressedFormatFeatureFlags,
-                Format.Bc6HSfloat,
-                Format.Bc6HUfloat,
-                Format.Bc7Srgb,
-                Format.Bc7Unorm);
-
-            bool supportsEtc2CompressionFormat = FormatCapabilities.OptimalFormatsSupport(compressedFormatFeatureFlags,
-                Format.Etc2RgbaSrgb,
-                Format.Etc2RgbaUnorm,
-                Format.Etc2RgbPtaSrgb,
-                Format.Etc2RgbPtaUnorm,
-                Format.Etc2RgbSrgb,
-                Format.Etc2RgbUnorm);
-
-            bool supports5BitComponentFormat = FormatCapabilities.OptimalFormatsSupport(compressedFormatFeatureFlags,
-                Format.R5G6B5Unorm,
-                Format.R5G5B5A1Unorm,
-                Format.R5G5B5X1Unorm,
-                Format.B5G6R5Unorm,
-                Format.B5G5R5A1Unorm,
-                Format.A1B5G5R5Unorm);
-
-            bool supportsR4G4B4A4Format = FormatCapabilities.OptimalFormatsSupport(compressedFormatFeatureFlags,
-                Format.R4G4B4A4Unorm);
-
-            bool supportsAstcFormats = FormatCapabilities.OptimalFormatsSupport(compressedFormatFeatureFlags,
-                Format.Astc4x4Unorm,
-                Format.Astc5x4Unorm,
-                Format.Astc5x5Unorm,
-                Format.Astc6x5Unorm,
-                Format.Astc6x6Unorm,
-                Format.Astc8x5Unorm,
-                Format.Astc8x6Unorm,
-                Format.Astc8x8Unorm,
-                Format.Astc10x5Unorm,
-                Format.Astc10x6Unorm,
-                Format.Astc10x8Unorm,
-                Format.Astc10x10Unorm,
-                Format.Astc12x10Unorm,
-                Format.Astc12x12Unorm,
-                Format.Astc4x4Srgb,
-                Format.Astc5x4Srgb,
-                Format.Astc5x5Srgb,
-                Format.Astc6x5Srgb,
-                Format.Astc6x6Srgb,
-                Format.Astc8x5Srgb,
-                Format.Astc8x6Srgb,
-                Format.Astc8x8Srgb,
-                Format.Astc10x5Srgb,
-                Format.Astc10x6Srgb,
-                Format.Astc10x8Srgb,
-                Format.Astc10x10Srgb,
-                Format.Astc12x10Srgb,
-                Format.Astc12x12Srgb);
-
-            PhysicalDeviceVulkan12Features featuresVk12 = new()
-            {
-                SType = StructureType.PhysicalDeviceVulkan12Features,
-            };
-
-            PhysicalDeviceFeatures2 features2 = new()
-            {
-                SType = StructureType.PhysicalDeviceFeatures2,
-                PNext = &featuresVk12,
-            };
-
-            Api.GetPhysicalDeviceFeatures2(_physicalDevice.PhysicalDevice, &features2);
-
-            PhysicalDeviceLimits limits = _physicalDevice.PhysicalDeviceProperties.Limits;
-            QueueFamilyProperties mainQueueProperties = _physicalDevice.QueueFamilyProperties[QueueFamilyIndex];
-
-            SystemMemoryType memoryType;
-
-            if (IsSharedMemory)
-            {
-                memoryType = SystemMemoryType.UnifiedMemory;
-            }
-            else
-            {
-                memoryType = Vendor == Vendor.Nvidia ?
-                    SystemMemoryType.DedicatedMemorySlowStorage :
-                    SystemMemoryType.DedicatedMemory;
-            }
-
-            return new Capabilities(
-                api: TargetApi.Vulkan,
-                GpuVendor,
-                memoryType: memoryType,
-                hasFrontFacingBug: IsIntelWindows,
-                hasVectorIndexingBug: IsQualcommProprietary,
-                needsFragmentOutputSpecialization: IsMoltenVk,
-                reduceShaderPrecision: IsMoltenVk,
-                supportsAstcCompression: features2.Features.TextureCompressionAstcLdr && supportsAstcFormats,
-                supportsBc123Compression: supportsBc123CompressionFormat,
-                supportsBc45Compression: supportsBc45CompressionFormat,
-                supportsBc67Compression: supportsBc67CompressionFormat,
-                supportsEtc2Compression: supportsEtc2CompressionFormat,
-                supports3DTextureCompression: true,
-                supportsBgraFormat: true,
-                supportsR4G4Format: false,
-                supportsR4G4B4A4Format: supportsR4G4B4A4Format,
-                supportsScaledVertexFormats: FormatCapabilities.SupportsScaledVertexFormats(),
-                supportsSnormBufferTextureFormat: true,
-                supports5BitComponentFormat: supports5BitComponentFormat,
-                supportsSparseBuffer: features2.Features.SparseBinding && mainQueueProperties.QueueFlags.HasFlag(QueueFlags.SparseBindingBit),
-                supportsBlendEquationAdvanced: Capabilities.SupportsBlendEquationAdvanced,
-                supportsFragmentShaderInterlock: Capabilities.SupportsFragmentShaderInterlock && !IsAdreno8xx,
-                supportsFragmentShaderOrderingIntel: false,
-                supportsGeometryShader: Capabilities.SupportsGeometryShader && !IsAdreno8xx,
-                supportsGeometryShaderPassthrough: Capabilities.SupportsGeometryShaderPassthrough && !IsAdreno8xx,
-                supportsTransformFeedback: Capabilities.SupportsTransformFeedback && !IsAdreno8xx,
-                supportsImageLoadFormatted: features2.Features.ShaderStorageImageReadWithoutFormat,
-                supportsLayerVertexTessellation: featuresVk12.ShaderOutputLayer && !IsAdreno8xx,
-                supportsMismatchingViewFormat: true,
-                supportsCubemapView: !IsAmdGcn,
-                supportsNonConstantTextureOffset: false,
-                supportsQuads: false,
-                supportsSeparateSampler: true,
-                supportsShaderBallot: false,
-                supportsShaderBarrierDivergence: Vendor != Vendor.Intel,
-                supportsShaderFloat64: Capabilities.SupportsShaderFloat64,
-                supportsShaderNonUniformIndexing:
-                    featuresVk12.ShaderSampledImageArrayNonUniformIndexing &&
-                    featuresVk12.ShaderStorageImageArrayNonUniformIndexing,
-                supportsTextureGatherOffsets: features2.Features.ShaderImageGatherExtended && !IsMoltenVk,
-                supportsTextureShadowLod: false,
-                supportsVertexStoreAndAtomics: features2.Features.VertexPipelineStoresAndAtomics,
-                supportsViewportIndexVertexTessellation: featuresVk12.ShaderOutputViewportIndex && !IsAdreno8xx,
-                supportsViewportMask: Capabilities.SupportsViewportArray2,
-                supportsViewportSwizzle: false,
-                supportsIndirectParameters: true,
-                supportsDepthClipControl: Capabilities.SupportsDepthClipControl,
-                uniformBufferSetIndex: PipelineBase.UniformSetIndex,
-                storageBufferSetIndex: PipelineBase.StorageSetIndex,
-                textureSetIndex: PipelineBase.TextureSetIndex,
-                imageSetIndex: PipelineBase.ImageSetIndex,
-                extraSetBaseIndex: PipelineBase.DescriptorSetLayouts,
-                maximumExtraSets: Math.Max(0, (int)limits.MaxBoundDescriptorSets - PipelineBase.DescriptorSetLayouts),
-                maximumUniformBuffersPerStage: Constants.MaxUniformBuffersPerStage,
-                maximumStorageBuffersPerStage: Constants.MaxStorageBuffersPerStage,
-                maximumTexturesPerStage: Constants.MaxTexturesPerStage,
-                maximumImagesPerStage: Constants.MaxImagesPerStage,
-                maximumComputeSharedMemorySize: (int)limits.MaxComputeSharedMemorySize,
-                maximumSupportedAnisotropy: (int)limits.MaxSamplerAnisotropy,
-                shaderSubgroupSize: (int)Capabilities.SubgroupSize,
-                storageBufferOffsetAlignment: (int)limits.MinStorageBufferOffsetAlignment,
-                textureBufferOffsetAlignment: (int)limits.MinTexelBufferOffsetAlignment,
-                gatherBiasPrecision: IsIntelWindows || IsAmdWindows ? (int)Capabilities.SubTexelPrecisionBits : 0,
-                maximumGpuMemory: GetTotalGPUMemory());
-        }
-
-        private ulong GetTotalGPUMemory()
-        {
-            ulong totalMemory = 0;
-
-            Api.GetPhysicalDeviceMemoryProperties(_physicalDevice.PhysicalDevice, out PhysicalDeviceMemoryProperties memoryProperties);
-
-            for (int i = 0; i < memoryProperties.MemoryHeapCount; i++)
-            {
-                var heap = memoryProperties.MemoryHeaps[i];
-                if ((heap.Flags & MemoryHeapFlags.DeviceLocalBit) == MemoryHeapFlags.DeviceLocalBit)
-                {
-                    totalMemory += heap.Size;
-                }
-            }
-
-            return totalMemory;
-        }
-
-        public HardwareInfo GetHardwareInfo()
-        {
-            return new HardwareInfo(GpuVendor, GpuRenderer, GpuDriver, GpuDriverVersion);
         }
 
         /// <summary>
-        /// Gets the available Vulkan devices using the default Vulkan API
-        /// object returned by <see cref="Vk.GetApi()"/>
+        /// Gets the path where the disk cache for the current application is stored.
         /// </summary>
-        /// <returns></returns>
-        public static DeviceInfo[] GetPhysicalDevices()
+        private static string GetDiskCachePath()
         {
-            try
-            {
-                return VulkanInitialization.GetSuitablePhysicalDevices(Vk.GetApi());
-            }
-            catch (Exception ex)
-            {
-                Logger.Error?.PrintMsg(LogClass.Gpu, $"Error querying Vulkan devices: {ex.Message}");
+            if (!GraphicsConfig.EnableShaderCache)
+                return null;
 
-                return [];
+            string titleId = GraphicsConfig.TitleId;
+            if (string.IsNullOrEmpty(titleId))
+            {
+                titleId = "default_game";
             }
+
+            return Path.Combine(AppDataManager.GamesDirPath, titleId.ToLower(), "cache", "shader");
         }
 
-        public static DeviceInfo[] GetPhysicalDevices(Vk api)
+        /// <summary>
+        /// Processes the queue of shaders that must save their binaries to the disk cache.
+        /// </summary>
+        public void ProcessShaderCacheQueue()
         {
-            try
+            // Check to see if the binaries for previously compiled shaders are ready, and save them out.
+
+            while (_programsToSaveQueue.TryPeek(out ProgramToSave programToSave))
             {
-                return VulkanInitialization.GetSuitablePhysicalDevices(api);
-            }
-            catch (Exception)
-            {
-                // If we got an exception here, Vulkan is most likely not supported.
-                return [];
-            }
-        }
+                ProgramLinkStatus result = programToSave.HostProgram.CheckProgramLink(false);
 
-        private static string ParseStandardVulkanVersion(uint version)
-        {
-            return $"{version >> 22}.{(version >> 12) & 0x3FF}.{version & 0xFFF}";
-        }
-
-        private static string ParseDriverVersion(ref PhysicalDeviceProperties properties)
-        {
-            uint driverVersionRaw = properties.DriverVersion;
-
-            // NVIDIA differ from the standard here and uses a different format.
-            if (properties.VendorID == 0x10DE)
-            {
-                return $"{(driverVersionRaw >> 22) & 0x3FF}.{(driverVersionRaw >> 14) & 0xFF}.{(driverVersionRaw >> 6) & 0xFF}.{driverVersionRaw & 0x3F}";
-            }
-
-            // Intel's Windows Vulkan driver exposes the 101.xxxx build portion in a custom layout.
-            if (properties.VendorID == 0x8086 && OperatingSystem.IsWindows())
-            {
-                return $"{driverVersionRaw >> 14}.{driverVersionRaw & 0x3FFF}";
-            }
-
-            return ParseStandardVulkanVersion(driverVersionRaw);
-        }
-
-        private static unsafe string GetDriverInfo(ref PhysicalDeviceDriverPropertiesKHR driverProperties)
-        {
-            fixed (byte* driverInfo = driverProperties.DriverInfo)
-            {
-                string driverInfoString = Marshal.PtrToStringAnsi((nint)driverInfo);
-
-                return string.IsNullOrWhiteSpace(driverInfoString) ? null : driverInfoString;
-            }
-        }
-
-        private static unsafe bool TryGetIntelWindowsDriverVersionFromUuid(ref PhysicalDeviceIDProperties propertiesId, out string driverVersion)
-        {
-            driverVersion = null;
-
-            if (!OperatingSystem.IsWindows())
-            {
-                return false;
-            }
-
-            fixed (byte* driverUuid = propertiesId.DriverUuid)
-            {
-                string driverUuidString = Marshal.PtrToStringAnsi((nint)driverUuid, (int)Vk.UuidSize);
-                int terminatorIndex = driverUuidString.IndexOf('\0');
-
-                if (terminatorIndex >= 0)
+                if (result != ProgramLinkStatus.Incomplete)
                 {
-                    driverUuidString = driverUuidString[..terminatorIndex];
-                }
+                    if (result == ProgramLinkStatus.Success)
+                    {
+                        _cacheWriter.AddShader(programToSave.CachedProgram, programToSave.BinaryCode ?? programToSave.HostProgram.GetBinary());
+                    }
 
-                if (VendorUtils.IntelWindowsDriverVersionRegex().IsMatch(driverUuidString))
+                    _programsToSaveQueue.Dequeue();
+                }
+                else
                 {
-                    driverVersion = driverUuidString;
-
-                    return true;
+                    break;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Initialize the cache.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token to cancel the shader cache initialization process</param>
+        internal void Initialize(CancellationToken cancellationToken)
+        {
+            if (_diskCacheHostStorage.CacheEnabled)
+            {
+                ParallelDiskCacheLoader loader = new(
+                    _context,
+                    _graphicsShaderCache,
+                    _computeShaderCache,
+                    _diskCacheHostStorage,
+                    ShaderCacheStateUpdate,
+                    cancellationToken);
+
+                loader.LoadShaders();
+
+                int errorCount = loader.ErrorCount;
+                if (errorCount != 0)
+                {
+                    Logger.Warning?.Print(LogClass.Gpu, $"Failed to load {errorCount} shaders from the disk cache.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Shader cache state update handler.
+        /// </summary>
+        /// <param name="state">Current state of the shader cache load process</param>
+        /// <param name="current">Number of the current shader being processed</param>
+        /// <param name="total">Total number of shaders to process</param>
+        private void ShaderCacheStateUpdate(ShaderCacheState state, int current, int total)
+        {
+            ShaderCacheStateChanged?.Invoke(state, current, total);
+        }
+
+        /// <summary>
+        /// Gets a compute shader from the cache.
+        /// </summary>
+        /// <remarks>
+        /// This automatically translates, compiles and adds the code to the cache if not present.
+        /// </remarks>
+        /// <param name="channel">GPU channel</param>
+        /// <param name="samplerPoolMaximumId">Maximum ID that an entry in the sampler pool may have</param>
+        /// <param name="poolState">Texture pool state</param>
+        /// <param name="computeState">Compute engine state</param>
+        /// <param name="gpuVa">GPU virtual address of the binary shader code</param>
+        /// <returns>Compiled compute shader code</returns>
+        public CachedShaderProgram GetComputeShader(
+            GpuChannel channel,
+            int samplerPoolMaximumId,
+            GpuChannelPoolState poolState,
+            GpuChannelComputeState computeState,
+            ulong gpuVa)
+        {
+            if (_cpPrograms.TryGetValue(gpuVa, out CachedShaderProgram cpShader) && IsShaderEqual(channel, poolState, computeState, cpShader, gpuVa))
+            {
+                return cpShader;
+            }
+
+            if (_computeShaderCache.TryFind(channel, poolState, computeState, gpuVa, out cpShader, out byte[] cachedGuestCode))
+            {
+                _cpPrograms[gpuVa] = cpShader;
+                return cpShader;
+            }
+
+            ShaderSpecializationState specState = new(ref computeState);
+            GpuAccessorState gpuAccessorState = new(samplerPoolMaximumId, poolState, computeState, default, specState);
+            GpuAccessor gpuAccessor = new(_context, channel, gpuAccessorState);
+            gpuAccessor.InitializeReservedCounts(tfEnabled: false, vertexAsCompute: false);
+
+            TranslatorContext translatorContext = DecodeComputeShader(gpuAccessor, _context.Capabilities.Api, gpuVa);
+            TranslatedShader translatedShader = TranslateShader(_dumper, channel, translatorContext, cachedGuestCode, asCompute: false);
+
+            ShaderSource[] shaderSourcesArray = [CreateShaderSource(translatedShader.Program)];
+            ShaderInfo info = ShaderInfoBuilder.BuildForCompute(_context, translatedShader.Program.Info);
+            IProgram hostProgram = _context.Renderer.CreateProgram(shaderSourcesArray, info);
+
+            cpShader = new CachedShaderProgram(hostProgram, specState, translatedShader.Shader);
+
+            _computeShaderCache.Add(cpShader);
+            EnqueueProgramToSave(cpShader, hostProgram, shaderSourcesArray);
+            _cpPrograms[gpuVa] = cpShader;
+
+            return cpShader;
+        }
+
+        /// <summary>
+        /// Updates the shader pipeline state based on the current GPU state.
+        /// </summary>
+        /// <param name="state">Current GPU 3D engine state</param>
+        /// <param name="pipeline">Shader pipeline state to be updated</param>
+        /// <param name="graphicsState">Current graphics state</param>
+        /// <param name="channel">Current GPU channel</param>
+        private static void UpdatePipelineInfo(
+            ref ThreedClassState state,
+            ref ProgramPipelineState pipeline,
+            GpuChannelGraphicsState graphicsState,
+            GpuChannel channel)
+        {
+            channel.TextureManager.UpdateRenderTargets();
+
+            RtControl rtControl = state.RtControl;
+            TextureMsaaMode msaaMode = state.RtMsaaMode;
+
+            pipeline.SamplesCount = msaaMode.SamplesInX() * msaaMode.SamplesInY();
+
+            int count = rtControl.UnpackCount();
+
+            Span<RtColorState> rtColorStateSpan = state.RtColorState.AsSpan();
+            Span<bool> attachmentEnableSpan = pipeline.AttachmentEnable.AsSpan();
+            Span<Format> attachmentFormatsSpan = pipeline.AttachmentFormats.AsSpan();
+
+            for (int index = 0; index < Constants.TotalRenderTargets; index++)
+            {
+                int rtIndex = rtControl.UnpackPermutationIndex(index);
+
+                RtColorState colorState = rtColorStateSpan[rtIndex];
+
+                if (index >= count || colorState.Format == 0 || colorState.WidthOrStride == 0)
+                {
+                    attachmentEnableSpan[index] = false;
+                    attachmentFormatsSpan[index] = Format.R8G8B8A8Unorm;
+                }
+                else
+                {
+                    attachmentEnableSpan[index] = true;
+                    attachmentFormatsSpan[index] = colorState.Format.Convert().Format;
+                }
+            }
+
+            pipeline.DepthStencilEnable = state.RtDepthStencilEnable;
+            pipeline.DepthStencilFormat = pipeline.DepthStencilEnable ? state.RtDepthStencilState.Format.Convert().Format : Format.D24UnormS8Uint;
+
+            pipeline.VertexBufferCount = Constants.TotalVertexBuffers;
+            pipeline.Topology = graphicsState.Topology;
+        }
+
+        /// <summary>
+        /// Gets a graphics shader program from the shader cache.
+        /// This includes all the specified shader stages.
+        /// </summary>
+        /// <remarks>
+        /// This automatically translates, compiles and adds the code to the cache if not present.
+        /// </remarks>
+        /// <param name="state">GPU state</param>
+        /// <param name="pipeline">Pipeline state</param>
+        /// <param name="channel">GPU channel</param>
+        /// <param name="samplerPoolMaximumId">Maximum ID that an entry in the sampler pool may have</param>
+        /// <param name="poolState">Texture pool state</param>
+        /// <param name="graphicsState">3D engine state</param>
+        /// <param name="addresses">Addresses of the shaders for each stage</param>
+        /// <returns>Compiled graphics shader code</returns>
+        public CachedShaderProgram GetGraphicsShader(
+            ref ThreedClassState state,
+            ref ProgramPipelineState pipeline,
+            GpuChannel channel,
+            int samplerPoolMaximumId,
+            ref GpuChannelPoolState poolState,
+            ref GpuChannelGraphicsState graphicsState,
+            ShaderAddresses addresses)
+        {
+            if (_gpPrograms.TryGetValue(addresses, out CachedShaderProgram gpShaders) && IsShaderEqual(channel, ref poolState, ref graphicsState, gpShaders, addresses))
+            {
+                return gpShaders;
+            }
+
+            if (_graphicsShaderCache.TryFind(channel, ref poolState, ref graphicsState, addresses, out gpShaders, out CachedGraphicsGuestCode cachedGuestCode))
+            {
+                _gpPrograms[addresses] = gpShaders;
+                return gpShaders;
+            }
+
+            TransformFeedbackDescriptor[] transformFeedbackDescriptors = GetTransformFeedbackDescriptors(ref state);
+
+            UpdatePipelineInfo(ref state, ref pipeline, graphicsState, channel);
+
+            ShaderSpecializationState specState = new(ref graphicsState, ref pipeline, transformFeedbackDescriptors);
+            GpuAccessorState gpuAccessorState = new(samplerPoolMaximumId, poolState, default, graphicsState, specState, transformFeedbackDescriptors);
+
+            ReadOnlySpan<ulong> addressesSpan = addresses.AsSpan();
+
+            GpuAccessor[] gpuAccessors = new GpuAccessor[Constants.ShaderStages];
+            TranslatorContext[] translatorContexts = new TranslatorContext[Constants.ShaderStages + 1];
+            TranslatorContext nextStage = null;
+
+            TargetApi api = _context.Capabilities.Api;
+
+            for (int stageIndex = Constants.ShaderStages - 1; stageIndex >= 0; stageIndex--)
+            {
+                ulong gpuVa = addressesSpan[stageIndex + 1];
+
+                if (gpuVa != 0)
+                {
+                    GpuAccessor gpuAccessor = new(_context, channel, gpuAccessorState, stageIndex, addresses.Geometry != 0);
+                    TranslatorContext currentStage = DecodeGraphicsShader(gpuAccessor, api, DefaultFlags, gpuVa);
+
+                    if (nextStage != null)
+                    {
+                        currentStage.SetNextStage(nextStage);
+                    }
+
+                    if (stageIndex == 0 && addresses.VertexA != 0)
+                    {
+                        translatorContexts[0] = DecodeGraphicsShader(gpuAccessor, api, DefaultFlags | TranslationFlags.VertexA, addresses.VertexA);
+                    }
+
+                    gpuAccessors[stageIndex] = gpuAccessor;
+                    translatorContexts[stageIndex + 1] = currentStage;
+                    nextStage = currentStage;
+                }
+            }
+
+            bool hasGeometryShader = translatorContexts[4] != null;
+            bool vertexHasStore = translatorContexts[1] != null && translatorContexts[1].HasStore;
+            bool geometryHasStore = hasGeometryShader && translatorContexts[4].HasStore;
+            bool vertexToCompute = ShouldConvertVertexToCompute(_context, vertexHasStore, geometryHasStore, hasGeometryShader);
+            bool geometryToCompute = ShouldConvertGeometryToCompute(_context, geometryHasStore);
+
+            CachedShaderStage[] shaders = new CachedShaderStage[Constants.ShaderStages + 1];
+            List<ShaderSource> shaderSources = [];
+
+            TranslatorContext previousStage = null;
+            ShaderInfoBuilder infoBuilder = new(_context, transformFeedbackDescriptors != null, vertexToCompute);
+
+            if (geometryToCompute && translatorContexts[4] != null)
+            {
+                translatorContexts[4].SetVertexOutputMapForGeometryAsCompute(translatorContexts[1]);
+            }
+
+            ShaderAsCompute vertexAsCompute = null;
+            ShaderAsCompute geometryAsCompute = null;
+
+            for (int stageIndex = 0; stageIndex < Constants.ShaderStages; stageIndex++)
+            {
+                TranslatorContext currentStage = translatorContexts[stageIndex + 1];
+
+                if (currentStage != null)
+                {
+                    gpuAccessors[stageIndex].InitializeReservedCounts(transformFeedbackDescriptors != null, vertexToCompute);
+
+                    ShaderProgram program;
+
+                    bool asCompute = (stageIndex == 0 && vertexToCompute) || (stageIndex == 3 && geometryToCompute);
+
+                    if (stageIndex == 0 && translatorContexts[0] != null)
+                    {
+                        TranslatedShaderVertexPair translatedShader = TranslateShader(
+                            _dumper,
+                            channel,
+                            currentStage,
+                            translatorContexts[0],
+                            cachedGuestCode.VertexACode,
+                            cachedGuestCode.VertexBCode,
+                            asCompute);
+
+                        shaders[0] = translatedShader.VertexA;
+                        shaders[1] = translatedShader.VertexB;
+                        program = translatedShader.Program;
+                    }
+                    else
+                    {
+                        byte[] code = cachedGuestCode.GetByIndex(stageIndex);
+
+                        TranslatedShader translatedShader = TranslateShader(_dumper, channel, currentStage, code, asCompute);
+
+                        shaders[stageIndex + 1] = translatedShader.Shader;
+                        program = translatedShader.Program;
+                    }
+
+                    if (asCompute)
+                    {
+                        bool tfEnabled = transformFeedbackDescriptors != null;
+
+                        if (stageIndex == 0)
+                        {
+                            vertexAsCompute = CreateHostVertexAsComputeProgram(program, currentStage, tfEnabled);
+
+                            TranslatorContext lastInVertexPipeline = geometryToCompute ? translatorContexts[4] ?? currentStage : currentStage;
+
+                            program = lastInVertexPipeline.GenerateVertexPassthroughForCompute();
+                        }
+                        else
+                        {
+                            geometryAsCompute = CreateHostVertexAsComputeProgram(program, currentStage, tfEnabled);
+                            program = null;
+                        }
+                    }
+
+                    if (program != null)
+                    {
+                        shaderSources.Add(CreateShaderSource(program));
+                        infoBuilder.AddStageInfo(program.Info);
+                    }
+
+                    previousStage = currentStage;
+                }
+                else if (
+                    previousStage != null &&
+                    previousStage.LayerOutputWritten &&
+                    stageIndex == 3 &&
+                    !_context.Capabilities.SupportsLayerVertexTessellation)
+                {
+                    shaderSources.Add(CreateShaderSource(previousStage.GenerateGeometryPassthrough()));
+                }
+            }
+
+            ShaderSource[] shaderSourcesArray = shaderSources.ToArray();
+
+            ShaderInfo info = infoBuilder.Build(pipeline);
+
+            IProgram hostProgram = _context.Renderer.CreateProgram(shaderSourcesArray, info);
+
+            gpShaders = new(hostProgram, vertexAsCompute, geometryAsCompute, specState, shaders);
+
+            _graphicsShaderCache.Add(gpShaders);
+
+            // We don't currently support caching shaders that have been converted to compute.
+            if (vertexAsCompute == null)
+            {
+                EnqueueProgramToSave(gpShaders, hostProgram, shaderSourcesArray);
+            }
+
+            _gpPrograms[addresses] = gpShaders;
+
+            return gpShaders;
+        }
+
+        /// <summary>
+        /// Checks if a vertex shader should be converted to a compute shader due to it making use of
+        /// features that are not supported on the host.
+        /// </summary>
+        /// <param name="context">GPU context of the shader</param>
+        /// <param name="vertexHasStore">Whether the vertex shader has image or storage buffer store operations</param>
+        /// <param name="geometryHasStore">Whether the geometry shader has image or storage buffer store operations, if one exists</param>
+        /// <param name="hasGeometryShader">Whether a geometry shader exists</param>
+        /// <returns>True if the vertex shader should be converted to compute, false otherwise</returns>
+        public static bool ShouldConvertVertexToCompute(GpuContext context, bool vertexHasStore, bool geometryHasStore, bool hasGeometryShader)
+        {
+            // If the host does not support store operations on vertex,
+            // we need to emulate it on a compute shader.
+            if (!context.Capabilities.SupportsVertexStoreAndAtomics && vertexHasStore)
+            {
+                return true;
+            }
+
+            // If any stage after the vertex stage is converted to compute,
+            // we need to convert vertex to compute too.
+            return hasGeometryShader && ShouldConvertGeometryToCompute(context, geometryHasStore);
+        }
+
+        /// <summary>
+        /// Checks if a geometry shader should be converted to a compute shader due to it making use of
+        /// features that are not supported on the host.
+        /// </summary>
+        /// <param name="context">GPU context of the shader</param>
+        /// <param name="geometryHasStore">Whether the geometry shader has image or storage buffer store operations, if one exists</param>
+        /// <returns>True if the geometry shader should be converted to compute, false otherwise</returns>
+        public static bool ShouldConvertGeometryToCompute(GpuContext context, bool geometryHasStore)
+        {
+            return (!context.Capabilities.SupportsVertexStoreAndAtomics && geometryHasStore) ||
+                   !context.Capabilities.SupportsGeometryShader;
+        }
+
+        /// <summary>
+        /// Checks if it might be necessary for any vertex, tessellation or geometry shader to be converted to compute,
+        /// based on the supported host features.
+        /// </summary>
+        /// <param name="capabilities">Host capabilities</param>
+        /// <returns>True if the possibility of a shader being converted to compute exists, false otherwise</returns>
+        public static bool MayConvertVtgToCompute(ref Capabilities capabilities)
+        {
+            return !capabilities.SupportsVertexStoreAndAtomics || !capabilities.SupportsGeometryShader;
+        }
+
+        /// <summary>
+        /// Creates a compute shader from a vertex, tessellation or geometry shader that has been converted to compute.
+        /// </summary>
+        /// <param name="program">Shader program</param>
+        /// <param name="context">Translation context of the shader</param>
+        /// <param name="tfEnabled">Whether transform feedback is enabled</param>
+        /// <returns>Compute shader</returns>
+        private ShaderAsCompute CreateHostVertexAsComputeProgram(ShaderProgram program, TranslatorContext context, bool tfEnabled)
+        {
+            ShaderSource source = new(program.Code, program.BinaryCode, ShaderStage.Compute, program.Language);
+            ShaderInfo info = ShaderInfoBuilder.BuildForVertexAsCompute(_context, program.Info, tfEnabled);
+
+            return new(_context.Renderer.CreateProgram([source], info), program.Info, context.GetResourceReservations());
+        }
+
+        /// <summary>
+        /// Creates a shader source for use with the backend from a translated shader program.
+        /// </summary>
+        /// <param name="program">Translated shader program</param>
+        /// <returns>Shader source</returns>
+        public static ShaderSource CreateShaderSource(ShaderProgram program)
+        {
+            return new ShaderSource(program.Code, program.BinaryCode, program.Info.Stage, program.Language);
+        }
+
+        /// <summary>
+        /// Puts a program on the queue of programs to be saved on the disk cache.
+        /// </summary>
+        /// <remarks>
+        /// This will not do anything if disk shader cache is disabled.
+        /// </remarks>
+        /// <param name="program">Cached shader program</param>
+        /// <param name="hostProgram">Host program</param>
+        /// <param name="sources">Source for each shader stage</param>
+        private void EnqueueProgramToSave(CachedShaderProgram program, IProgram hostProgram, ShaderSource[] sources)
+        {
+            if (_diskCacheHostStorage.CacheEnabled)
+            {
+                byte[] binaryCode = _context.Capabilities.Api == TargetApi.Vulkan ? ShaderBinarySerializer.Pack(sources) : null;
+                ProgramToSave programToSave = new(program, hostProgram, binaryCode);
+
+                _programsToSaveQueue.Enqueue(programToSave);
+            }
+        }
+
+        /// <summary>
+        /// Gets transform feedback state from the current GPU state.
+        /// </summary>
+        /// <param name="state">Current GPU state</param>
+        /// <returns>Four transform feedback descriptors for the enabled TFBs, or null if TFB is disabled</returns>
+        private static TransformFeedbackDescriptor[] GetTransformFeedbackDescriptors(ref ThreedClassState state)
+        {
+            bool tfEnable = state.TfEnable;
+            if (!tfEnable)
+            {
+                return null;
+            }
+
+            TransformFeedbackDescriptor[] descs = new TransformFeedbackDescriptor[Constants.TotalTransformFeedbackBuffers];
+
+            Span<TfState> tfStateSpan = state.TfState.AsSpan();
+            Span<Array32<uint>> tfVaryingLocationsSpan = state.TfVaryingLocations.AsSpan();
+            
+            for (int i = 0; i < Constants.TotalTransformFeedbackBuffers; i++)
+            {
+                TfState tf = tfStateSpan[i];
+
+                descs[i] = new TransformFeedbackDescriptor(
+                    tf.BufferIndex,
+                    tf.Stride,
+                    tf.VaryingsCount,
+                    ref tfVaryingLocationsSpan[i]);
+            }
+
+            return descs;
+        }
+
+        /// <summary>
+        /// Checks if compute shader code in memory is equal to the cached shader.
+        /// </summary>
+        /// <param name="channel">GPU channel using the shader</param>
+        /// <param name="poolState">GPU channel state to verify shader compatibility</param>
+        /// <param name="computeState">GPU channel compute state to verify shader compatibility</param>
+        /// <param name="cpShader">Cached compute shader</param>
+        /// <param name="gpuVa">GPU virtual address of the shader code in memory</param>
+        /// <returns>True if the code is different, false otherwise</returns>
+        private static bool IsShaderEqual(
+            GpuChannel channel,
+            GpuChannelPoolState poolState,
+            GpuChannelComputeState computeState,
+            CachedShaderProgram cpShader,
+            ulong gpuVa)
+        {
+            if (IsShaderEqual(channel.MemoryManager, cpShader.Shaders[0], gpuVa))
+            {
+                return cpShader.SpecializationState.MatchesCompute(channel, ref poolState, computeState, true);
             }
 
             return false;
         }
 
-        internal PrimitiveTopology TopologyRemap(PrimitiveTopology topology)
+        /// <summary>
+        /// Checks if graphics shader code from all stages in memory are equal to the cached shaders.
+        /// </summary>
+        /// <param name="channel">GPU channel using the shader</param>
+        /// <param name="poolState">GPU channel state to verify shader compatibility</param>
+        /// <param name="graphicsState">GPU channel graphics state to verify shader compatibility</param>
+        /// <param name="gpShaders">Cached graphics shaders</param>
+        /// <param name="addresses">GPU virtual addresses of all enabled shader stages</param>
+        /// <returns>True if the code is different, false otherwise</returns>
+        private static bool IsShaderEqual(
+            GpuChannel channel,
+            ref GpuChannelPoolState poolState,
+            ref GpuChannelGraphicsState graphicsState,
+            CachedShaderProgram gpShaders,
+            ShaderAddresses addresses)
         {
-            return topology switch
+            ReadOnlySpan<ulong> addressesSpan = addresses.AsSpan();
+
+            for (int stageIndex = 0; stageIndex < gpShaders.Shaders.Length; stageIndex++)
             {
-                PrimitiveTopology.Quads => PrimitiveTopology.Triangles,
-                PrimitiveTopology.QuadStrip => PrimitiveTopology.TriangleStrip,
-                PrimitiveTopology.TriangleFan or PrimitiveTopology.Polygon => Capabilities.PortabilitySubset.HasFlag(PortabilitySubsetFlags.NoTriangleFans)
-                    ? PrimitiveTopology.Triangles
-                    : topology,
-                _ => topology,
-            };
-        }
+                CachedShaderStage shader = gpShaders.Shaders[stageIndex];
 
-        internal bool TopologyUnsupported(PrimitiveTopology topology)
-        {
-            return topology switch
-            {
-                PrimitiveTopology.Quads => true,
-                PrimitiveTopology.TriangleFan or PrimitiveTopology.Polygon => Capabilities.PortabilitySubset.HasFlag(PortabilitySubsetFlags.NoTriangleFans),
-                _ => false,
-            };
-        }
+                ulong gpuVa = addressesSpan[stageIndex];
 
-        private void PrintGpuInformation()
-        {
-            Logger.Notice.Print(LogClass.Gpu, $"{GpuVendor} {GpuRenderer} ({GpuVersion}, Driver: {GpuDriver} {GpuDriverVersion})");
-            Logger.Notice.Print(LogClass.Gpu, $"GPU Memory: {GetTotalGPUMemory() / (1024 * 1024)} MiB");
-        }
-
-        public void Initialize(GraphicsDebugLevel logLevel)
-        {
-            SetupContext(logLevel);
-
-            PrintGpuInformation();
-        }
-
-        internal bool NeedsVertexBufferAlignment(int attrScalarAlignment, out int alignment)
-        {
-            if (Capabilities.VertexBufferAlignment > 1)
-            {
-                alignment = (int)Capabilities.VertexBufferAlignment;
-
-                return true;
-            }
-            else if (Vendor != Vendor.Nvidia)
-            {
-                // Vulkan requires that vertex attributes are globally aligned by their component size,
-                // so buffer strides that don't divide by the largest scalar element are invalid.
-                // Guest applications do this, NVIDIA GPUs are OK with it, others are not.
-
-                alignment = attrScalarAlignment;
-
-                return true;
-            }
-
-            alignment = 1;
-
-            return false;
-        }
-
-        public void PreFrame()
-        {
-            SyncManager.Cleanup();
-        }
-
-        public ICounterEvent ReportCounter(CounterType type, EventHandler<ulong> resultHandler, float divisor, bool hostReserved)
-        {
-            return _counters.QueueReport(type, resultHandler, divisor, hostReserved);
-        }
-
-        public void ResetCounter(CounterType type)
-        {
-            _counters.QueueReset(type);
-        }
-
-        public void SetBufferData(BufferHandle buffer, int offset, ReadOnlySpan<byte> data)
-        {
-            BufferManager.SetData(buffer, offset, data, _pipeline.CurrentCommandBuffer, _pipeline.EndRenderPassDelegate);
-        }
-
-        public void UpdateCounters()
-        {
-            _counters.Update();
-        }
-
-        public void ResetCounterPool()
-        {
-            _counters.ResetCounterPool();
-        }
-
-        public void ResetFutureCounters(CommandBuffer cmd, int count)
-        {
-            _counters?.ResetFutureCounters(cmd, count);
-        }
-
-        public void BackgroundContextAction(Action action, bool alwaysBackground = false)
-        {
-            action();
-        }
-
-        public void CreateSync(ulong id, bool strict)
-        {
-            SyncManager.Create(id, strict);
-        }
-
-        public IProgram LoadProgramBinary(byte[] programBinary, bool isFragment, ShaderInfo info)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void WaitSync(ulong id)
-        {
-            SyncManager.Wait(id);
-        }
-
-        public ulong GetCurrentSync()
-        {
-            return SyncManager.GetCurrent();
-        }
-
-        public void SetInterruptAction(Action<Action> interruptAction)
-        {
-            InterruptAction = interruptAction;
-        }
-
-        public void Screenshot()
-        {
-            _window.ScreenCaptureRequested = true;
-        }
-
-        public void OnScreenCaptured(ScreenCaptureImageInfo bitmap)
-        {
-            ScreenCaptured?.Invoke(this, bitmap);
-        }
-
-        public bool SupportsRenderPassBarrier(PipelineStageFlags flags)
-        {
-            return !(IsMoltenVk || IsQualcommProprietary);
-        }
-
-        // ===== Surface/Present Lifecycle helpers =====
-
-        public unsafe bool RecreateSurface()
-        {
-            if (!PresentAllowed)
-            {
-                return false;
-            }
-
-            lock (SurfaceLock)
-            {
-                try
+                if (!IsShaderEqual(channel.MemoryManager, shader, gpuVa))
                 {
-                    if (_surface.Handle != 0)
-                    {
-                        SurfaceApi.DestroySurface(_instance.Instance, _surface, null);
-                        _surface = new SurfaceKHR(0);
-                    }
-
-                    _surface = _getSurface(_instance.Instance, Api);
-                    if (_surface.Handle == 0)
-                    {
-                        return false;
-                    }
-
-                    ( _window as Window )?.SetSurface(_surface);
-                    ( _window as Window )?.SetSurfaceQueryAllowed(true);
-                    return true;
-                }
-                catch
-                {
-                    // retry später
                     return false;
                 }
             }
+
+            bool vertexAsCompute = gpShaders.VertexAsCompute != null;
+            bool usesDrawParameters = gpShaders.Shaders[1]?.Info.UsesDrawParameters ?? false;
+
+            return gpShaders.SpecializationState.MatchesGraphics(
+                channel,
+                ref poolState,
+                ref graphicsState,
+                vertexAsCompute,
+                usesDrawParameters,
+                checkTextures: true);
         }
 
-        public unsafe void ReleaseSurface()
+        /// <summary>
+        /// Checks if the code of the specified cached shader is different from the code in memory.
+        /// </summary>
+        /// <param name="memoryManager">Memory manager used to access the GPU memory where the shader is located</param>
+        /// <param name="shader">Cached shader to compare with</param>
+        /// <param name="gpuVa">GPU virtual address of the binary shader code</param>
+        /// <returns>True if the code is different, false otherwise</returns>
+        private static bool IsShaderEqual(MemoryManager memoryManager, CachedShaderStage shader, ulong gpuVa)
         {
-            lock (SurfaceLock)
+            if (shader == null)
             {
-                if (!_initialized)
-                {
-                    return;
-                }
-
-                try
-                {
-                    ( _window as Window )?.SetSurfaceQueryAllowed(false);
-
-                    if (_surface.Handle != 0 && SurfaceApi != null && _instance != null)
-                    {
-                        SurfaceApi.DestroySurface(_instance.Instance, _surface, null);
-                        _surface = new SurfaceKHR(0);
-                    }
-                }
-                catch
-                {
-                    // still
-                }
-
-                try
-                {
-                    ( _window as Window )?.OnSurfaceLost();
-                }
-                catch
-                {
-                    // ignore shutdown path exceptions
-                }
+                return true;
             }
+
+            ReadOnlySpan<byte> memoryCode = memoryManager.GetSpanMapped(gpuVa, shader.Code.Length);
+
+            return memoryCode.SequenceEqual(shader.Code);
         }
 
-        public void SetPresentEnabled(bool enabled)
+        /// <summary>
+        /// Decode the binary Maxwell shader code to a translator context.
+        /// </summary>
+        /// <param name="gpuAccessor">GPU state accessor</param>
+        /// <param name="api">Graphics API that will be used with the shader</param>
+        /// <param name="gpuVa">GPU virtual address of the binary shader code</param>
+        /// <returns>The generated translator context</returns>
+        public static TranslatorContext DecodeComputeShader(IGpuAccessor gpuAccessor, TargetApi api, ulong gpuVa)
         {
-            PresentAllowed = enabled;
-
-            if (!_initialized)
-            {
-                return;
-            }
-
-            if (!enabled)
-            {
-                try
-                {
-                    ( _window as Window )?.SetSurfaceQueryAllowed(false);
-                    ReleaseSurface();
-                }
-                catch
-                {
-                    // ignore shutdown path exceptions
-                }
-            }
-            else
-            {
-                try
-                {
-                    _ = RecreateSurface();
-                }
-                catch
-                {
-                    // ignore resume path exceptions
-                }
-            }
+            TranslationOptions options = CreateTranslationOptions(api, DefaultFlags | TranslationFlags.Compute);
+            return Translator.CreateContext(gpuVa, gpuAccessor, options);
         }
 
-        public void SetPresentAllowed(bool allowed)
+        /// <summary>
+        /// Decode the binary Maxwell shader code to a translator context.
+        /// </summary>
+        /// <remarks>
+        /// This will combine the "Vertex A" and "Vertex B" shader stages, if specified, into one shader.
+        /// </remarks>
+        /// <param name="gpuAccessor">GPU state accessor</param>
+        /// <param name="api">Graphics API that will be used with the shader</param>
+        /// <param name="flags">Flags that controls shader translation</param>
+        /// <param name="gpuVa">GPU virtual address of the shader code</param>
+        /// <returns>The generated translator context</returns>
+        public static TranslatorContext DecodeGraphicsShader(IGpuAccessor gpuAccessor, TargetApi api, TranslationFlags flags, ulong gpuVa)
         {
-            PresentAllowed = allowed;
-            Logger.Trace?.Print(LogClass.Gpu, $"PresentAllowed={allowed}");
-
-            if (allowed)
-            {
-                try
-                {
-                    ( _window as Window )?.SetSurfaceQueryAllowed(true);
-                    _window?.SetSize(0, 0);
-                    _ = RecreateSurface();
-                }
-                catch { }
-            }
-            else
-            {
-                ( _window as Window )?.SetSurfaceQueryAllowed(false);
-            }
+            TranslationOptions options = CreateTranslationOptions(api, flags);
+            return Translator.CreateContext(gpuVa, gpuAccessor, options);
         }
 
-        public unsafe void Dispose()
+        /// <summary>
+        /// Translates a previously generated translator context to something that the host API accepts.
+        /// </summary>
+        /// <param name="dumper">Optional shader code dumper</param>
+        /// <param name="channel">GPU channel using the shader</param>
+        /// <param name="currentStage">Translator context of the stage to be translated</param>
+        /// <param name="vertexA">Optional translator context of the shader that should be combined</param>
+        /// <param name="codeA">Optional Maxwell binary code of the Vertex A shader, if present</param>
+        /// <param name="codeB">Optional Maxwell binary code of the Vertex B or current stage shader, if present on cache</param>
+        /// <param name="asCompute">Indicates that the vertex shader should be converted to a compute shader</param>
+        /// <returns>Compiled graphics shader code</returns>
+        private static TranslatedShaderVertexPair TranslateShader(
+            ShaderDumper dumper,
+            GpuChannel channel,
+            TranslatorContext currentStage,
+            TranslatorContext vertexA,
+            byte[] codeA,
+            byte[] codeB,
+            bool asCompute)
         {
-            if (!_initialized)
+            ulong cb1DataAddress = channel.BufferManager.GetGraphicsUniformBufferAddress(0, 1);
+
+            MemoryManager memoryManager = channel.MemoryManager;
+
+            codeA ??= memoryManager.GetSpan(vertexA.Address, vertexA.Size).ToArray();
+            codeB ??= memoryManager.GetSpan(currentStage.Address, currentStage.Size).ToArray();
+            byte[] cb1DataA = ReadArray(memoryManager, cb1DataAddress, vertexA.Cb1DataSize);
+            byte[] cb1DataB = ReadArray(memoryManager, cb1DataAddress, currentStage.Cb1DataSize);
+
+            ShaderDumpPaths pathsA = default;
+            ShaderDumpPaths pathsB = default;
+
+            if (dumper != null)
             {
-                return;
+                pathsA = dumper.Dump(codeA, compute: false);
+                pathsB = dumper.Dump(codeB, compute: false);
             }
 
-            CommandBufferPool.Dispose();
-            BackgroundResources.Dispose();
-            _counters.Dispose();
-            _window.Dispose();
-            HelperShader.Dispose();
-            _pipeline.Dispose();
-            BufferManager.Dispose();
-            PipelineLayoutCache.Dispose();
-            Barriers.Dispose();
+            ShaderProgram program = currentStage.Translate(vertexA, asCompute);
 
-            MemoryAllocator.Dispose();
+            pathsB.Prepend(program);
+            pathsA.Prepend(program);
 
-            foreach (ShaderCollection shader in Shaders) shader.Dispose();
-            foreach (ITexture texture in Textures) texture.Release();
-            foreach (SamplerHolder sampler in Samplers) sampler.Dispose();
+            CachedShaderStage vertexAStage = new(null, codeA, cb1DataA);
+            CachedShaderStage vertexBStage = new(program.Info, codeB, cb1DataB);
 
-            if (_surface.Handle != 0)
-            {
-                SurfaceApi.DestroySurface(_instance.Instance, _surface, null);
-            }
-
-            Api.DestroyDevice(_device, null);
-
-            _debugMessenger.Dispose();
-
-            // Last step destroy the instance
-            _instance.Dispose();
+            return new TranslatedShaderVertexPair(vertexAStage, vertexBStage, program);
         }
 
-        public bool PrepareHostMapping(nint address, ulong size)
+        /// <summary>
+        /// Translates a previously generated translator context to something that the host API accepts.
+        /// </summary>
+        /// <param name="dumper">Optional shader code dumper</param>
+        /// <param name="channel">GPU channel using the shader</param>
+        /// <param name="context">Translator context of the stage to be translated</param>
+        /// <param name="code">Optional Maxwell binary code of the current stage shader, if present on cache</param>
+        /// <param name="asCompute">Indicates that the vertex shader should be converted to a compute shader</param>
+        /// <returns>Compiled graphics shader code</returns>
+        private static TranslatedShader TranslateShader(ShaderDumper dumper, GpuChannel channel, TranslatorContext context, byte[] code, bool asCompute)
         {
-            return Capabilities.SupportsHostImportedMemory &&
-                HostMemoryAllocator.TryImport(BufferManager.HostImportedBufferMemoryRequirements, BufferManager.DefaultBufferMemoryFlags, address, size);
+            MemoryManager memoryManager = channel.MemoryManager;
+
+            ulong cb1DataAddress = context.Stage == ShaderStage.Compute
+                ? channel.BufferManager.GetComputeUniformBufferAddress(1)
+                : channel.BufferManager.GetGraphicsUniformBufferAddress(StageToStageIndex(context.Stage), 1);
+
+            byte[] cb1Data = ReadArray(memoryManager, cb1DataAddress, context.Cb1DataSize);
+            code ??= memoryManager.GetSpan(context.Address, context.Size).ToArray();
+
+            ShaderDumpPaths paths = dumper?.Dump(code, context.Stage == ShaderStage.Compute) ?? default;
+            ShaderProgram program = context.Translate(asCompute);
+
+            paths.Prepend(program);
+
+            return new TranslatedShader(new CachedShaderStage(program.Info, code, cb1Data), program);
+        }
+
+        /// <summary>
+        /// Reads data from physical memory, returns an empty array if the memory is unmapped or size is 0.
+        /// </summary>
+        /// <param name="memoryManager">Memory manager with the physical memory to read from</param>
+        /// <param name="address">Physical address of the region to read</param>
+        /// <param name="size">Size in bytes of the data to read</param>
+        /// <returns>An array with the data at the specified memory location</returns>
+        private static byte[] ReadArray(MemoryManager memoryManager, ulong address, int size)
+        {
+            if (address == MemoryManager.PteUnmapped || size == 0)
+            {
+                return [];
+            }
+
+            return memoryManager.Physical.GetSpan(address, size).ToArray();
+        }
+
+        /// <summary>
+        /// Gets the index of a stage from a <see cref="ShaderStage"/>.
+        /// </summary>
+        /// <param name="stage">Stage to get the index from</param>
+        /// <returns>Stage index</returns>
+        private static int StageToStageIndex(ShaderStage stage)
+        {
+            return stage switch
+            {
+                ShaderStage.TessellationControl => 1,
+                ShaderStage.TessellationEvaluation => 2,
+                ShaderStage.Geometry => 3,
+                ShaderStage.Fragment => 4,
+                _ => 0,
+            };
+        }
+
+        /// <summary>
+        /// Creates shader translation options with the requested graphics API and flags.
+        /// The shader language is choosen based on the current configuration and graphics API.
+        /// </summary>
+        /// <param name="api">Target graphics API</param>
+        /// <param name="flags">Translation flags</param>
+        /// <returns>Translation options</returns>
+        private static TranslationOptions CreateTranslationOptions(TargetApi api, TranslationFlags flags)
+        {
+            TargetLanguage lang = GraphicsConfig.EnableSpirvCompilationOnVulkan && api == TargetApi.Vulkan
+                ? TargetLanguage.Spirv
+                : TargetLanguage.Glsl;
+
+            return new TranslationOptions(lang, api, flags);
+        }
+
+        /// <summary>
+        /// Disposes the shader cache, deleting all the cached shaders.
+        /// It's an error to use the shader cache after disposal.
+        /// </summary>
+        public void Dispose()
+        {
+            foreach (CachedShaderProgram program in _graphicsShaderCache.GetPrograms())
+            {
+                program.Dispose();
+            }
+
+            foreach (CachedShaderProgram program in _computeShaderCache.GetPrograms())
+            {
+                program.Dispose();
+            }
+
+            _cacheWriter?.Dispose();
         }
     }
 }
